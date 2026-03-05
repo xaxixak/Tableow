@@ -68,7 +68,16 @@ function GridConnections() {
     return () => observer.disconnect();
   }, [measurePositions]);
 
-  if (edges.length === 0) return null;
+  if (edges.length === 0) {
+    console.log('GridConnections: No edges to render');
+    return null;
+  }
+
+  console.log('GridConnections rendering:', {
+    edgeCount: edges.length,
+    positionsCount: positions.size,
+    dimensions
+  });
 
   return (
     <svg
