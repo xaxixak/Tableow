@@ -1034,9 +1034,17 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
         ? { ...node, data: { ...node.data, laneId, stageId } }
         : node,
     )
+
+    // In grid mode: Remove ALL edges connected to this node before auto-connecting
+    // This ensures grid connections are always left-to-right based on current position
+    const edgesWithoutNode = state.edges.filter(
+      (e) => e.source !== nodeId && e.target !== nodeId
+    )
+
     // Auto-connect: create edges to/from adjacent-stage nodes in same lane
-    const autoEdges = autoConnectEdges(nodeId, laneId, stageId, newGridConfig, state.edges)
-    const newEdges = [...state.edges, ...autoEdges]
+    const autoEdges = autoConnectEdges(nodeId, laneId, stageId, newGridConfig, edgesWithoutNode)
+    const newEdges = [...edgesWithoutNode, ...autoEdges]
+
     set({
       nodes: newNodes,
       edges: newEdges,
