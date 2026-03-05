@@ -2,12 +2,14 @@ import { useState, useMemo, useCallback, useEffect, type DragEvent } from "react
 import {
   ChevronDown,
   ChevronRight,
+  ChevronLeft,
   Search,
   Plus,
   X,
   Trash2,
   Pencil,
   MoreVertical,
+  LayoutGrid,
 } from "lucide-react";
 import { nodeRegistry } from "../../registry/index.ts";
 import { useWorkflowStore } from "../../store/workflowStore.ts";
@@ -30,7 +32,15 @@ const ICON_PRESETS = [
 ];
 
 // Built-in categories that can't be renamed/deleted
-const BUILTIN_CATEGORIES = new Set(["General", "Accounting"]);
+const BUILTIN_CATEGORIES = new Set([
+  "General",
+  "Accounting",
+  "Procurement",
+  "Sales",
+  "Inventory",
+  "HR",
+  "Finance",
+]);
 
 // --- Category Tree Structure ---
 
@@ -395,16 +405,16 @@ function CategorySection({
 
   // Hierarchy colors based on depth
   const bgColors = [
-    "bg-slate-50",
-    "bg-blue-50",
-    "bg-indigo-50",
-    "bg-purple-50",
+    "bg-slate-50 dark:bg-zinc-800",
+    "bg-blue-50 dark:bg-blue-900/30",
+    "bg-indigo-50 dark:bg-indigo-900/30",
+    "bg-purple-50 dark:bg-purple-900/30",
   ];
   const hoverBgColors = [
-    "hover:bg-slate-100",
-    "hover:bg-blue-100",
-    "hover:bg-indigo-100",
-    "hover:bg-purple-100",
+    "hover:bg-slate-100 dark:hover:bg-zinc-700",
+    "hover:bg-blue-100 dark:hover:bg-blue-900/50",
+    "hover:bg-indigo-100 dark:hover:bg-indigo-900/50",
+    "hover:bg-purple-100 dark:hover:bg-purple-900/50",
   ];
   const headerBg = bgColors[depth % bgColors.length];
   const headerHover = hoverBgColors[depth % hoverBgColors.length];
@@ -555,6 +565,8 @@ export default function NodePalette() {
   const customCategories = useWorkflowStore((s) => s.customCategories);
   const removeCustomNodeType = useWorkflowStore((s) => s.removeCustomNodeType);
   const addCustomCategory = useWorkflowStore((s) => s.addCustomCategory);
+  const collapsed = useWorkflowStore((s) => s.palettCollapsed);
+  const togglePalette = useWorkflowStore((s) => s.togglePalette);
 
   const customTypeSet = useMemo(
     () => new Set(customNodeTypes.map((d) => d.type)),
@@ -597,23 +609,46 @@ export default function NodePalette() {
     [removeCustomNodeType]
   );
 
+  if (collapsed) {
+    return (
+      <aside className="w-10 shrink-0 bg-white dark:bg-zinc-900 border-r border-slate-200 dark:border-zinc-700 flex flex-col h-full items-center py-2">
+        <button
+          onClick={togglePalette}
+          className="p-1.5 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors"
+          title="Expand Node Palette"
+        >
+          <LayoutGrid className="w-4 h-4" />
+        </button>
+      </aside>
+    );
+  }
+
   return (
-    <aside className="w-[250px] shrink-0 bg-white border-r border-slate-200 flex flex-col h-full overflow-hidden">
+    <aside className="w-[250px] shrink-0 bg-white dark:bg-zinc-900 border-r border-slate-200 dark:border-zinc-700 flex flex-col h-full overflow-hidden">
       {/* Header */}
-      <div className="px-3 py-3 border-b border-slate-200">
+      <div className="px-3 py-3 border-b border-slate-200 dark:border-zinc-700">
         <div className="flex items-center justify-between mb-2">
-          <h2 className="text-sm font-semibold text-slate-700">Node Palette</h2>
-          <button
-            onClick={handleAddCategory}
-            className="flex items-center gap-1 px-2 py-0.5 text-xs rounded-md text-blue-600 hover:bg-blue-50 transition-colors"
-            title="Create new category"
-          >
-            <Plus className="w-3 h-3" />
-            New
-          </button>
+          <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200">Node Palette</h2>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={handleAddCategory}
+              className="flex items-center gap-1 px-2 py-0.5 text-xs rounded-md text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors"
+              title="Create new category"
+            >
+              <Plus className="w-3 h-3" />
+              New
+            </button>
+            <button
+              onClick={togglePalette}
+              className="p-1 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors"
+              title="Collapse palette"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+          </div>
         </div>
         <div className="relative">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
           <input
             type="text"
             placeholder="Search nodes..."
@@ -622,8 +657,9 @@ export default function NodePalette() {
             className={cn(
               "w-full pl-8 pr-3 py-1.5 text-sm rounded-md",
               "border border-slate-200 bg-slate-50",
+              "dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200",
               "focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400",
-              "placeholder:text-slate-400"
+              "placeholder:text-slate-400 dark:placeholder:text-slate-500"
             )}
           />
         </div>

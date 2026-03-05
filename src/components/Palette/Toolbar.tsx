@@ -136,7 +136,7 @@ export default function Toolbar() {
   }, [showRecent]);
 
   return (
-    <header className="flex items-center gap-3 px-4 py-2 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 shrink-0">
+    <header className="flex items-center gap-3 px-4 py-2 bg-white dark:bg-zinc-900 border-b border-slate-200 dark:border-zinc-700 shrink-0">
       {/* Workflow name */}
       <div className="flex items-center gap-1.5 min-w-0">
         {editingName ? (

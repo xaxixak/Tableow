@@ -105,12 +105,52 @@ export const billNode: NodeDefinition = {
   color: "bg-orange-600",
 };
 
-export const purchaseRequestNode: NodeDefinition = {
-  type: "purchase-request",
-  label: "Purchase Request",
+export const purchaseRequestBillNode: NodeDefinition = {
+  type: "purchase-request-bill",
+  label: "PR (Bill)",
   category: "Accounting/AP",
-  description: "Create purchase request",
+  description: "Purchase request that generates a vendor bill",
   icon: "\uD83D\uDCDD",
+  inputs: [{ name: "requisition", type: "document", label: "Requisition" }],
+  outputs: [
+    { name: "pr", type: "document", label: "PR" },
+    { name: "bill", type: "document", label: "Bill" },
+  ],
+  configSchema: [
+    {
+      key: "department",
+      label: "Department",
+      type: "text",
+      defaultValue: "",
+    },
+    {
+      key: "vendor",
+      label: "Vendor",
+      type: "text",
+      defaultValue: "",
+    },
+    {
+      key: "urgency",
+      label: "Urgency",
+      type: "select",
+      options: [
+        { label: "Low", value: "low" },
+        { label: "Medium", value: "medium" },
+        { label: "High", value: "high" },
+      ],
+      defaultValue: "medium",
+    },
+  ],
+  defaultConfig: { department: "", vendor: "", urgency: "medium" },
+  color: "bg-amber-600",
+};
+
+export const purchaseRequestNoBillNode: NodeDefinition = {
+  type: "purchase-request-no-bill",
+  label: "PR (No Bill)",
+  category: "Accounting/AP",
+  description: "Purchase request without billing (petty cash, services)",
+  icon: "\uD83D\uDCCB",
   inputs: [{ name: "requisition", type: "document", label: "Requisition" }],
   outputs: [{ name: "pr", type: "document", label: "PR" }],
   configSchema: [
@@ -133,7 +173,7 @@ export const purchaseRequestNode: NodeDefinition = {
     },
   ],
   defaultConfig: { department: "", urgency: "medium" },
-  color: "bg-amber-600",
+  color: "bg-yellow-600",
 };
 
 export const paymentVoucherNode: NodeDefinition = {
@@ -227,14 +267,69 @@ export const reportNode: NodeDefinition = {
   color: "bg-rose-600",
 };
 
+export const debitNoteNode: NodeDefinition = {
+  type: "debit-note",
+  label: "Debit Note",
+  category: "Accounting/AR",
+  description: "Issue debit note to customer",
+  icon: "\uD83D\uDCC4",
+  inputs: [{ name: "invoice", type: "document", label: "Invoice" }],
+  outputs: [{ name: "debitNote", type: "document", label: "Debit Note" }],
+  configSchema: [
+    {
+      key: "reason",
+      label: "Reason",
+      type: "text",
+      defaultValue: "",
+    },
+    {
+      key: "amount",
+      label: "Amount",
+      type: "number",
+      defaultValue: 0,
+    },
+  ],
+  defaultConfig: { reason: "", amount: 0 },
+  color: "bg-red-600",
+};
+
+export const creditNoteNode: NodeDefinition = {
+  type: "credit-note",
+  label: "Credit Note",
+  category: "Accounting/AR",
+  description: "Issue credit note to customer",
+  icon: "\uD83D\uDCB8",
+  inputs: [{ name: "invoice", type: "document", label: "Invoice" }],
+  outputs: [{ name: "creditNote", type: "document", label: "Credit Note" }],
+  configSchema: [
+    {
+      key: "reason",
+      label: "Reason",
+      type: "text",
+      defaultValue: "",
+    },
+    {
+      key: "amount",
+      label: "Amount",
+      type: "number",
+      defaultValue: 0,
+    },
+  ],
+  defaultConfig: { reason: "", amount: 0 },
+  color: "bg-pink-600",
+};
+
 export const accountingNodes: NodeDefinition[] = [
   // AR
   invoiceNode,
   receiptNode,
   goodsReceiptNode,
+  debitNoteNode,
+  creditNoteNode,
   // AP
   billNode,
-  purchaseRequestNode,
+  purchaseRequestBillNode,
+  purchaseRequestNoBillNode,
   paymentVoucherNode,
   // General
   approvalNode,

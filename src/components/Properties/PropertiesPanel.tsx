@@ -1,5 +1,5 @@
 import { useMemo, useCallback } from "react";
-import { Trash2, X } from "lucide-react";
+import { Trash2, X, ChevronRight, Settings2 } from "lucide-react";
 import { useWorkflowStore } from "../../store/workflowStore.ts";
 import { nodeRegistry } from "../../registry/index.ts";
 import type { ConfigFieldDefinition } from "../../types/index.ts";
@@ -91,6 +91,8 @@ export default function PropertiesPanel() {
   const updateNodeConfig = useWorkflowStore((s) => s.updateNodeConfig);
   const removeNode = useWorkflowStore((s) => s.removeNode);
   const selectNode = useWorkflowStore((s) => s.selectNode);
+  const collapsed = useWorkflowStore((s) => s.propertiesCollapsed);
+  const toggleProperties = useWorkflowStore((s) => s.toggleProperties);
 
   const selectedNode = useMemo(
     () => nodes.find((n) => n.id === selectedNodeId),
@@ -125,12 +127,34 @@ export default function PropertiesPanel() {
     selectNode(null);
   }, [selectNode]);
 
+  // Collapsed state
+  if (collapsed) {
+    return (
+      <aside className="w-10 shrink-0 bg-white border-l border-slate-200 flex flex-col h-full items-center py-2">
+        <button
+          onClick={toggleProperties}
+          className="p-1.5 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+          title="Expand Properties"
+        >
+          <Settings2 className="w-4 h-4" />
+        </button>
+      </aside>
+    );
+  }
+
   // Empty state
   if (!selectedNode || !definition) {
     return (
       <aside className="w-[300px] shrink-0 bg-white border-l border-slate-200 flex flex-col h-full">
-        <div className="px-4 py-3 border-b border-slate-200">
+        <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between">
           <h2 className="text-sm font-semibold text-slate-700">Properties</h2>
+          <button
+            onClick={toggleProperties}
+            className="p-1 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+            title="Collapse properties"
+          >
+            <ChevronRight className="w-4 h-4" />
+          </button>
         </div>
         <div className="flex-1 flex items-center justify-center px-6">
           <p className="text-sm text-slate-400 text-center">
@@ -148,13 +172,22 @@ export default function PropertiesPanel() {
         <h2 className="text-sm font-semibold text-slate-700 truncate">
           Properties
         </h2>
-        <button
-          onClick={handleClose}
-          className="p-1 text-slate-400 hover:text-slate-600 transition-colors rounded"
-          title="Deselect node"
-        >
-          <X className="w-4 h-4" />
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={handleClose}
+            className="p-1 text-slate-400 hover:text-slate-600 transition-colors rounded"
+            title="Deselect node"
+          >
+            <X className="w-4 h-4" />
+          </button>
+          <button
+            onClick={toggleProperties}
+            className="p-1 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+            title="Collapse properties"
+          >
+            <ChevronRight className="w-4 h-4" />
+          </button>
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto">
