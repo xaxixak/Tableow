@@ -501,6 +501,7 @@ export default function PropertiesPanel() {
                     <option value="output">Output</option>
                     <option value="end">End</option>
                     <option value="subprocess">Subprocess</option>
+                    <option value="document">Document</option>
                   </select>
                   <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                     Determines node shape and workflow behavior

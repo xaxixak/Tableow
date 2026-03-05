@@ -58,7 +58,7 @@ export interface CategoryDefinition {
 /**
  * Workflow/control flow types for visual rendering and flow logic.
  */
-export type FlowType = 'start' | 'process' | 'decision' | 'output' | 'end' | 'subprocess'
+export type FlowType = 'start' | 'process' | 'decision' | 'output' | 'end' | 'subprocess' | 'document'
 
 /**
  * A NodeDefinition is the blueprint/template for a type of node.

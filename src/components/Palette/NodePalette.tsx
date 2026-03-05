@@ -25,6 +25,7 @@ const BASE_TYPES = [
   { value: "decision", label: "Decision" },
   { value: "start", label: "Start" },
   { value: "output", label: "Output" },
+  { value: "document", label: "Document" },
 ] as const;
 
 const ICON_PRESETS = [

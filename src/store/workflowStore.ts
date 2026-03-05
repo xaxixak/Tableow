@@ -283,6 +283,11 @@ function baseTypeToPorts(baseType: string): { inputs: NodeDefinition['inputs']; 
         inputs: [{ name: 'document', type: 'document', label: 'Document' }],
         outputs: [],
       }
+    case 'document':
+      return {
+        inputs: [{ name: 'in', type: 'document', label: 'Input' }],
+        outputs: [{ name: 'out', type: 'document', label: 'Output' }],
+      }
     case 'process':
     default:
       return {
