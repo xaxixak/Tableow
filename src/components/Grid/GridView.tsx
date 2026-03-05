@@ -134,7 +134,7 @@ export default function GridView() {
   const isEmpty = lanes.length === 0 && stages.length === 0;
 
   return (
-    <div className="w-full h-full flex flex-col bg-slate-50">
+    <div className="w-full h-full flex flex-col bg-slate-50 dark:bg-black">
       {/* Grid scroll area */}
       <div
         className="flex-1 overflow-auto relative"
@@ -142,11 +142,11 @@ export default function GridView() {
         onContextMenu={handleBackgroundContextMenu}
       >
         {isEmpty ? (
-          <div className="flex flex-col items-center justify-center h-full gap-6 text-slate-400">
+          <div className="flex flex-col items-center justify-center h-full gap-6 text-slate-400 dark:text-slate-500">
             <div className="text-center">
-              <LayoutGrid className="w-10 h-10 mx-auto mb-2 text-slate-300" />
-              <p className="text-sm font-medium text-slate-500">Start your workflow grid</p>
-              <p className="text-xs mt-1">Pick a template or add lanes and stages manually</p>
+              <LayoutGrid className="w-10 h-10 mx-auto mb-2 text-slate-300 dark:text-slate-600" />
+              <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Start your workflow grid</p>
+              <p className="text-xs mt-1 dark:text-slate-500">Pick a template or add lanes and stages manually</p>
             </div>
 
             {/* Seed templates */}
@@ -155,14 +155,15 @@ export default function GridView() {
                 onClick={() => seedGrid(2, 2)}
                 className={cn(
                   "flex flex-col items-center gap-2 px-5 py-3 rounded-lg",
-                  "border-2 border-dashed border-slate-300 text-slate-500",
+                  "border-2 border-dashed border-slate-300 dark:border-zinc-700 text-slate-500 dark:text-slate-400",
                   "hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50/50",
+                  "dark:hover:border-blue-600 dark:hover:text-blue-400 dark:hover:bg-blue-900/20",
                   "transition-colors"
                 )}
               >
                 <div className="grid grid-cols-2 gap-0.5">
                   {Array.from({ length: 4 }).map((_, i) => (
-                    <div key={i} className="w-4 h-3 rounded-sm bg-slate-300" />
+                    <div key={i} className="w-4 h-3 rounded-sm bg-slate-300 dark:bg-zinc-700" />
                   ))}
                 </div>
                 <span className="text-xs font-medium">2 x 2</span>
@@ -171,14 +172,15 @@ export default function GridView() {
                 onClick={() => seedGrid(3, 3)}
                 className={cn(
                   "flex flex-col items-center gap-2 px-5 py-3 rounded-lg",
-                  "border-2 border-dashed border-slate-300 text-slate-500",
+                  "border-2 border-dashed border-slate-300 dark:border-zinc-700 text-slate-500 dark:text-slate-400",
                   "hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50/50",
+                  "dark:hover:border-blue-600 dark:hover:text-blue-400 dark:hover:bg-blue-900/20",
                   "transition-colors"
                 )}
               >
                 <div className="grid grid-cols-3 gap-0.5">
                   {Array.from({ length: 9 }).map((_, i) => (
-                    <div key={i} className="w-3 h-2.5 rounded-sm bg-slate-300" />
+                    <div key={i} className="w-3 h-2.5 rounded-sm bg-slate-300 dark:bg-zinc-700" />
                   ))}
                 </div>
                 <span className="text-xs font-medium">3 x 3</span>
@@ -187,14 +189,15 @@ export default function GridView() {
                 onClick={() => seedGrid(4, 4)}
                 className={cn(
                   "flex flex-col items-center gap-2 px-5 py-3 rounded-lg",
-                  "border-2 border-dashed border-slate-300 text-slate-500",
+                  "border-2 border-dashed border-slate-300 dark:border-zinc-700 text-slate-500 dark:text-slate-400",
                   "hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50/50",
+                  "dark:hover:border-blue-600 dark:hover:text-blue-400 dark:hover:bg-blue-900/20",
                   "transition-colors"
                 )}
               >
                 <div className="grid grid-cols-4 gap-0.5">
                   {Array.from({ length: 16 }).map((_, i) => (
-                    <div key={i} className="w-2.5 h-2 rounded-sm bg-slate-300" />
+                    <div key={i} className="w-2.5 h-2 rounded-sm bg-slate-300 dark:bg-zinc-700" />
                   ))}
                 </div>
                 <span className="text-xs font-medium">4 x 4</span>
@@ -207,7 +210,8 @@ export default function GridView() {
                 onClick={handleAddLane}
                 className={cn(
                   "flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-md",
-                  "border border-slate-300 text-slate-500 hover:bg-white transition-colors"
+                  "border border-slate-300 dark:border-zinc-700 text-slate-500 dark:text-slate-400",
+                  "hover:bg-white dark:hover:bg-zinc-800 transition-colors"
                 )}
               >
                 <Plus className="w-3.5 h-3.5" />
@@ -217,7 +221,8 @@ export default function GridView() {
                 onClick={handleAddStage}
                 className={cn(
                   "flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-md",
-                  "border border-slate-300 text-slate-500 hover:bg-white transition-colors"
+                  "border border-slate-300 dark:border-zinc-700 text-slate-500 dark:text-slate-400",
+                  "hover:bg-white dark:hover:bg-zinc-800 transition-colors"
                 )}
               >
                 <Plus className="w-3.5 h-3.5" />
@@ -289,20 +294,20 @@ export default function GridView() {
       {/* Background context menu */}
       {contextMenu && (
         <div
-          className="fixed z-50 bg-white border border-slate-200 rounded-lg shadow-lg py-1 min-w-[160px]"
+          className="fixed z-50 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg shadow-lg py-1 min-w-[160px]"
           style={{ left: contextMenu.x, top: contextMenu.y }}
           onClick={(e) => e.stopPropagation()}
         >
           <button
             onClick={handleContextAddLane}
-            className="flex items-center gap-2 w-full px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
+            className="flex items-center gap-2 w-full px-3 py-1.5 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-zinc-800"
           >
             <Plus className="w-3.5 h-3.5" />
             Add Lane
           </button>
           <button
             onClick={handleContextAddStage}
-            className="flex items-center gap-2 w-full px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
+            className="flex items-center gap-2 w-full px-3 py-1.5 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-zinc-800"
           >
             <Plus className="w-3.5 h-3.5" />
             Add Stage

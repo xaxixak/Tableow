@@ -16,7 +16,8 @@ function ConfigFieldDefinitionInput({
 }) {
   const inputClasses = cn(
     "w-full px-2.5 py-1.5 text-sm rounded-md border border-slate-200",
-    "bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400"
+    "bg-white dark:bg-zinc-800 dark:border-zinc-600 dark:text-slate-200",
+    "focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400"
   );
 
   switch (field.type) {
@@ -130,10 +131,10 @@ export default function PropertiesPanel() {
   // Collapsed state
   if (collapsed) {
     return (
-      <aside className="w-10 shrink-0 bg-white border-l border-slate-200 flex flex-col h-full items-center py-2">
+      <aside className="w-10 shrink-0 bg-white dark:bg-zinc-900 border-l border-slate-200 dark:border-zinc-700 flex flex-col h-full items-center py-2">
         <button
           onClick={toggleProperties}
-          className="p-1.5 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+          className="p-1.5 rounded-md text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors"
           title="Expand Properties"
         >
           <Settings2 className="w-4 h-4" />
@@ -145,12 +146,12 @@ export default function PropertiesPanel() {
   // Empty state
   if (!selectedNode || !definition) {
     return (
-      <aside className="w-[300px] shrink-0 bg-white border-l border-slate-200 flex flex-col h-full">
-        <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-slate-700">Properties</h2>
+      <aside className="w-[300px] shrink-0 bg-white dark:bg-zinc-900 border-l border-slate-200 dark:border-zinc-700 flex flex-col h-full">
+        <div className="px-4 py-3 border-b border-slate-200 dark:border-zinc-700 flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200">Properties</h2>
           <button
             onClick={toggleProperties}
-            className="p-1 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+            className="p-1 rounded-md text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors"
             title="Collapse properties"
           >
             <ChevronRight className="w-4 h-4" />
@@ -166,23 +167,23 @@ export default function PropertiesPanel() {
   }
 
   return (
-    <aside className="w-[300px] shrink-0 bg-white border-l border-slate-200 flex flex-col h-full overflow-hidden">
+    <aside className="w-[300px] shrink-0 bg-white dark:bg-zinc-900 border-l border-slate-200 dark:border-zinc-700 flex flex-col h-full overflow-hidden">
       {/* Header */}
-      <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between gap-2">
-        <h2 className="text-sm font-semibold text-slate-700 truncate">
+      <div className="px-4 py-3 border-b border-slate-200 dark:border-zinc-700 flex items-center justify-between gap-2">
+        <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200 truncate">
           Properties
         </h2>
         <div className="flex items-center gap-1">
           <button
             onClick={handleClose}
-            className="p-1 text-slate-400 hover:text-slate-600 transition-colors rounded"
+            className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors rounded"
             title="Deselect node"
           >
             <X className="w-4 h-4" />
           </button>
           <button
             onClick={toggleProperties}
-            className="p-1 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+            className="p-1 rounded-md text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors"
             title="Collapse properties"
           >
             <ChevronRight className="w-4 h-4" />
@@ -192,47 +193,47 @@ export default function PropertiesPanel() {
 
       <div className="flex-1 overflow-y-auto">
         {/* Node info */}
-        <div className="px-4 py-3 border-b border-slate-100">
+        <div className="px-4 py-3 border-b border-slate-100 dark:border-zinc-800">
           <div className="flex items-center gap-2 mb-1">
             {definition.icon && (
               <span className="text-lg leading-none">{definition.icon}</span>
             )}
-            <span className="text-sm font-semibold text-slate-800">
+            <span className="text-sm font-semibold text-slate-800 dark:text-slate-100">
               {definition.label}
             </span>
           </div>
           {definition.description && (
-            <p className="text-xs text-slate-500 mt-1">
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
               {definition.description}
             </p>
           )}
           <div className="flex gap-2 mt-2">
-            <span className="text-xs px-1.5 py-0.5 rounded bg-slate-100 text-slate-500">
+            <span className="text-xs px-1.5 py-0.5 rounded bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-slate-400">
               {definition.category}
             </span>
-            <span className="text-xs px-1.5 py-0.5 rounded bg-slate-100 text-slate-500">
+            <span className="text-xs px-1.5 py-0.5 rounded bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-slate-400">
               {definition.type}
             </span>
           </div>
         </div>
 
         {/* Ports info */}
-        <div className="px-4 py-3 border-b border-slate-100">
-          <div className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-2">
+        <div className="px-4 py-3 border-b border-slate-100 dark:border-zinc-800">
+          <div className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">
             Ports
           </div>
           <div className="grid grid-cols-2 gap-2 text-xs">
             <div>
-              <span className="text-slate-400">Inputs:</span>{" "}
-              <span className="text-slate-700">
+              <span className="text-slate-400 dark:text-slate-500">Inputs:</span>{" "}
+              <span className="text-slate-700 dark:text-slate-300">
                 {definition.inputs.length === 0
                   ? "None"
                   : definition.inputs.map((p) => p.label ?? p.name).join(", ")}
               </span>
             </div>
             <div>
-              <span className="text-slate-400">Outputs:</span>{" "}
-              <span className="text-slate-700">
+              <span className="text-slate-400 dark:text-slate-500">Outputs:</span>{" "}
+              <span className="text-slate-700 dark:text-slate-300">
                 {definition.outputs.length === 0
                   ? "None"
                   : definition.outputs
@@ -246,13 +247,13 @@ export default function PropertiesPanel() {
         {/* Config form */}
         {definition.configSchema && definition.configSchema.length > 0 && (
           <div className="px-4 py-3">
-            <div className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-3">
+            <div className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">
               Configuration
             </div>
             <div className="flex flex-col gap-3">
               {definition.configSchema.map((field) => (
                 <div key={field.key}>
-                  <label className="block text-xs font-medium text-slate-600 mb-1">
+                  <label className="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1">
                     {field.label}
                   </label>
                   <ConfigFieldDefinitionInput
@@ -268,12 +269,13 @@ export default function PropertiesPanel() {
       </div>
 
       {/* Footer - delete button */}
-      <div className="px-4 py-3 border-t border-slate-200">
+      <div className="px-4 py-3 border-t border-slate-200 dark:border-zinc-700">
         <button
           onClick={handleDelete}
           className={cn(
             "flex items-center justify-center gap-1.5 w-full px-3 py-2 text-sm rounded-md",
-            "text-red-600 border border-red-200 hover:bg-red-50 transition-colors"
+            "text-red-600 dark:text-red-400 border border-red-200 dark:border-red-900/50",
+            "hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
           )}
         >
           <Trash2 className="w-4 h-4" />

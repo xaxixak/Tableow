@@ -136,6 +136,7 @@ function NodePaletteItem({
       className={cn(
         "flex items-start gap-2.5 px-3 py-2 rounded-md cursor-grab group",
         "border border-transparent hover:border-slate-200 hover:bg-slate-50",
+        "dark:hover:border-zinc-600 dark:hover:bg-zinc-800/50",
         "active:cursor-grabbing transition-colors duration-100"
       )}
       title={`Drag to add ${definition.label}`}
@@ -146,11 +147,11 @@ function NodePaletteItem({
         </span>
       )}
       <div className="min-w-0 flex-1">
-        <div className="text-sm font-medium text-slate-800 truncate">
+        <div className="text-sm font-medium text-slate-800 dark:text-slate-100 truncate">
           {definition.label}
         </div>
         {definition.description && (
-          <div className="text-xs text-slate-500 leading-snug mt-0.5">
+          <div className="text-xs text-slate-500 dark:text-slate-400 leading-snug mt-0.5">
             {definition.description}
           </div>
         )}
@@ -403,18 +404,18 @@ function CategorySection({
 
   const paddingLeft = depth * 12;
 
-  // Hierarchy colors based on depth
+  // Hierarchy colors based on depth - more distinct solid colors
   const bgColors = [
-    "bg-slate-50 dark:bg-zinc-800",
-    "bg-blue-50 dark:bg-blue-900/30",
-    "bg-indigo-50 dark:bg-indigo-900/30",
-    "bg-purple-50 dark:bg-purple-900/30",
+    "bg-slate-200 dark:bg-zinc-800",
+    "bg-blue-300 dark:bg-blue-800",
+    "bg-indigo-300 dark:bg-indigo-800",
+    "bg-purple-300 dark:bg-purple-800",
   ];
   const hoverBgColors = [
-    "hover:bg-slate-100 dark:hover:bg-zinc-700",
-    "hover:bg-blue-100 dark:hover:bg-blue-900/50",
-    "hover:bg-indigo-100 dark:hover:bg-indigo-900/50",
-    "hover:bg-purple-100 dark:hover:bg-purple-900/50",
+    "hover:bg-slate-300 dark:hover:bg-zinc-700",
+    "hover:bg-blue-400 dark:hover:bg-blue-700",
+    "hover:bg-indigo-400 dark:hover:bg-indigo-700",
+    "hover:bg-purple-400 dark:hover:bg-purple-700",
   ];
   const headerBg = bgColors[depth % bgColors.length];
   const headerHover = hoverBgColors[depth % hoverBgColors.length];
@@ -435,7 +436,8 @@ function CategorySection({
           onClick={() => setOpen(!open)}
           className={cn(
             "flex items-center gap-1.5 flex-1 py-2 text-xs font-semibold",
-            "text-slate-500 uppercase tracking-wider hover:text-slate-700",
+            "text-slate-600 dark:text-slate-200 uppercase tracking-wider",
+            "hover:text-slate-900 dark:hover:text-white",
             "transition-colors duration-100",
             headerHover
           )}
@@ -560,6 +562,8 @@ function CategorySection({
 
 export default function NodePalette() {
   const [search, setSearch] = useState("");
+  const [libraryOpen, setLibraryOpen] = useState(false); // Node Library collapsed by default
+  const [myNodesOpen, setMyNodesOpen] = useState(true); // My Nodes expanded by default
   const registryVersion = useWorkflowStore((s) => s.registryVersion);
   const customNodeTypes = useWorkflowStore((s) => s.customNodeTypes);
   const customCategories = useWorkflowStore((s) => s.customCategories);
@@ -578,7 +582,8 @@ export default function NodePalette() {
     [customCategories]
   );
 
-  const categoryTree = useMemo(() => {
+  // Build category trees - split into built-in and custom
+  const { builtInTree, customTree } = useMemo(() => {
     const all = nodeRegistry.getAll();
     const filtered = search.trim()
       ? all.filter(
@@ -589,9 +594,22 @@ export default function NodePalette() {
         )
       : all;
 
-    return buildCategoryTree(filtered, customCategories);
+    // Split nodes into built-in and custom
+    const builtInNodes = filtered.filter((d) => {
+      const topCategory = d.category.split("/")[0];
+      return BUILTIN_CATEGORIES.has(topCategory) && !customTypeSet.has(d.type);
+    });
+    const customNodes = filtered.filter((d) => {
+      const topCategory = d.category.split("/")[0];
+      return !BUILTIN_CATEGORIES.has(topCategory) || customTypeSet.has(d.type);
+    });
+
+    return {
+      builtInTree: buildCategoryTree(builtInNodes, []),
+      customTree: buildCategoryTree(customNodes, customCategories),
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search, registryVersion, customCategories]);
+  }, [search, registryVersion, customCategories, customTypeSet]);
 
   const handleAddCategory = useCallback(() => {
     const name = window.prompt("New category path (e.g. Accounting/AR):");
@@ -665,25 +683,88 @@ export default function NodePalette() {
         </div>
       </div>
 
-      {/* Categories */}
-      <div className="flex-1 overflow-y-auto py-1">
-        {categoryTree.children.size === 0 ? (
-          <div className="px-3 py-8 text-center text-sm text-slate-400">
-            No nodes found
+      {/* Categories - Split into two sections */}
+      <div className="flex-1 overflow-y-auto">
+        {/* Node Library (Built-in) */}
+        {builtInTree.children.size > 0 && (
+          <div className="border-b border-slate-200 dark:border-zinc-700">
+            <button
+              onClick={() => setLibraryOpen(!libraryOpen)}
+              className="flex items-center gap-2 w-full px-3 py-2 text-xs font-semibold bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 text-slate-600 dark:text-slate-300 uppercase tracking-wider"
+            >
+              {libraryOpen ? (
+                <ChevronDown className="w-3.5 h-3.5" />
+              ) : (
+                <ChevronRight className="w-3.5 h-3.5" />
+              )}
+              <span>Node Library</span>
+              <span className="ml-auto text-slate-400 dark:text-slate-500 font-normal normal-case">
+                {builtInTree.children.size} categories
+              </span>
+            </button>
+            {libraryOpen && (
+              <div className="py-1">
+                {Array.from(builtInTree.children.values()).map((rootNode) => (
+                  <CategorySection
+                    key={rootNode.fullPath}
+                    node={rootNode}
+                    depth={0}
+                    defaultOpen={search.trim().length > 0}
+                    isCustomCategory={false}
+                    customTypes={customTypeSet}
+                    onDeleteCustomNode={handleDeleteCustomNode}
+                  />
+                ))}
+              </div>
+            )}
           </div>
-        ) : (
-          Array.from(categoryTree.children.values()).map((rootNode, i) => (
-            <CategorySection
-              key={rootNode.fullPath}
-              node={rootNode}
-              depth={0}
-              defaultOpen={i === 0 || search.trim().length > 0}
-              isCustomCategory={customCatSet.has(rootNode.fullPath) || !BUILTIN_CATEGORIES.has(rootNode.fullPath)}
-              customTypes={customTypeSet}
-              onDeleteCustomNode={handleDeleteCustomNode}
-            />
-          ))
         )}
+
+        {/* My Nodes (Custom) */}
+        <div>
+          <button
+            onClick={() => setMyNodesOpen(!myNodesOpen)}
+            className="flex items-center gap-2 w-full px-3 py-2 text-xs font-semibold bg-blue-100 dark:bg-blue-900/30 hover:bg-blue-200 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-300 uppercase tracking-wider"
+          >
+            {myNodesOpen ? (
+              <ChevronDown className="w-3.5 h-3.5" />
+            ) : (
+              <ChevronRight className="w-3.5 h-3.5" />
+            )}
+            <span>My Nodes</span>
+            <span className="ml-auto text-blue-600 dark:text-blue-400 font-normal normal-case">
+              {customTree.children.size} categories
+            </span>
+          </button>
+          {myNodesOpen && (
+            <div className="py-1">
+              {customTree.children.size === 0 ? (
+                <div className="px-3 py-8 text-center text-xs text-slate-400 dark:text-slate-500">
+                  No custom nodes yet
+                  <br />
+                  <button
+                    onClick={handleAddCategory}
+                    className="mt-2 text-blue-600 dark:text-blue-400 hover:underline"
+                  >
+                    Create your first category
+                  </button>
+                </div>
+              ) : (
+                Array.from(customTree.children.values()).map((rootNode) => (
+                  <CategorySection
+                    key={rootNode.fullPath}
+                    node={rootNode}
+                    depth={0}
+                    defaultOpen={search.trim().length > 0}
+                    isCustomCategory={true}
+                    customTypes={customTypeSet}
+                    onDeleteCustomNode={handleDeleteCustomNode}
+                  />
+                ))
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Footer */}
