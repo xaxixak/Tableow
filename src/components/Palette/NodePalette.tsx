@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, type DragEvent } from "react";
+import { useState, useMemo, useCallback, useEffect, type DragEvent } from "react";
 import {
   ChevronDown,
   ChevronRight,
@@ -7,6 +7,7 @@ import {
   X,
   Trash2,
   Pencil,
+  MoreVertical,
 } from "lucide-react";
 import { nodeRegistry } from "../../registry/index.ts";
 import { useWorkflowStore } from "../../store/workflowStore.ts";
@@ -30,6 +31,75 @@ const ICON_PRESETS = [
 
 // Built-in categories that can't be renamed/deleted
 const BUILTIN_CATEGORIES = new Set(["General", "Accounting"]);
+
+// --- Category Tree Structure ---
+
+interface CategoryNode {
+  name: string;
+  fullPath: string;
+  children: Map<string, CategoryNode>;
+  definitions: NodeDefinition[];
+}
+
+function buildCategoryTree(
+  definitions: NodeDefinition[],
+  customCategories: string[]
+): CategoryNode {
+  const root: CategoryNode = {
+    name: "",
+    fullPath: "",
+    children: new Map(),
+    definitions: [],
+  };
+
+  // Add all definitions
+  for (const def of definitions) {
+    const parts = def.category.split("/").map((p) => p.trim()).filter(Boolean);
+    let current = root;
+    let pathSoFar = "";
+
+    for (let i = 0; i < parts.length; i++) {
+      const part = parts[i];
+      pathSoFar = pathSoFar ? `${pathSoFar}/${part}` : part;
+
+      if (!current.children.has(part)) {
+        current.children.set(part, {
+          name: part,
+          fullPath: pathSoFar,
+          children: new Map(),
+          definitions: [],
+        });
+      }
+      current = current.children.get(part)!;
+    }
+
+    // Add definition to the leaf node
+    current.definitions.push(def);
+  }
+
+  // Ensure empty custom categories appear
+  for (const cat of customCategories) {
+    const parts = cat.split("/").map((p) => p.trim()).filter(Boolean);
+    let current = root;
+    let pathSoFar = "";
+
+    for (const part of parts) {
+      pathSoFar = pathSoFar ? `${pathSoFar}/${part}` : part;
+
+      if (!current.children.has(part)) {
+        current.children.set(part, {
+          name: part,
+          fullPath: pathSoFar,
+          children: new Map(),
+          definitions: [],
+        });
+      }
+      current = current.children.get(part)!;
+    }
+  }
+
+  return root;
+}
 
 // --- Palette Item (draggable node) ---
 
@@ -104,10 +174,10 @@ function NodePaletteItem({
 // --- Inline Add Node Form (inside a category) ---
 
 function AddNodeForm({
-  category,
+  categoryPath,
   onClose,
 }: {
-  category: string;
+  categoryPath: string;
   onClose: () => void;
 }) {
   const addCustomNodeType = useWorkflowStore((s) => s.addCustomNodeType);
@@ -121,13 +191,13 @@ function AddNodeForm({
       if (!label.trim()) return;
       addCustomNodeType({
         label: label.trim(),
-        category,
+        category: categoryPath,
         icon,
         baseType: baseType as "process" | "decision" | "start" | "output",
       });
       onClose();
     },
-    [label, category, icon, baseType, addCustomNodeType, onClose]
+    [label, categoryPath, icon, baseType, addCustomNodeType, onClose]
   );
 
   const inputCls = cn(
@@ -270,18 +340,18 @@ function EditNodeForm({
   );
 }
 
-// --- Category Section ---
+// --- Category Section (recursive for nested categories) ---
 
 function CategorySection({
-  category,
-  definitions,
+  node,
+  depth,
   defaultOpen,
   isCustomCategory,
   customTypes,
   onDeleteCustomNode,
 }: {
-  category: string;
-  definitions: NodeDefinition[];
+  node: CategoryNode;
+  depth: number;
   defaultOpen: boolean;
   isCustomCategory: boolean;
   customTypes: Set<string>;
@@ -289,34 +359,78 @@ function CategorySection({
 }) {
   const [open, setOpen] = useState(defaultOpen);
   const [addingNode, setAddingNode] = useState(false);
+  const [addingSubCategory, setAddingSubCategory] = useState(false);
   const [editingNode, setEditingNode] = useState<string | null>(null);
+  const [showMenu, setShowMenu] = useState(false);
   const removeCustomCategory = useWorkflowStore((s) => s.removeCustomCategory);
   const renameCustomCategory = useWorkflowStore((s) => s.renameCustomCategory);
+  const addCustomCategory = useWorkflowStore((s) => s.addCustomCategory);
+
+  const hasChildren = node.children.size > 0;
+  const hasDefinitions = node.definitions.length > 0;
 
   const handleRenameCategory = useCallback(() => {
-    const newName = window.prompt("Rename category:", category);
-    if (newName?.trim() && newName.trim() !== category) {
-      renameCustomCategory(category, newName.trim());
+    const newName = window.prompt("Rename category:", node.fullPath);
+    if (newName?.trim() && newName.trim() !== node.fullPath) {
+      renameCustomCategory(node.fullPath, newName.trim());
     }
-  }, [category, renameCustomCategory]);
+  }, [node.fullPath, renameCustomCategory]);
 
   const handleDeleteCategory = useCallback(() => {
-    if (window.confirm(`Delete category "${category}" and all its custom nodes?`)) {
-      removeCustomCategory(category);
+    if (window.confirm(`Delete category "${node.fullPath}" and all its custom nodes?`)) {
+      removeCustomCategory(node.fullPath);
     }
-  }, [category, removeCustomCategory]);
+  }, [node.fullPath, removeCustomCategory]);
+
+  const handleAddSubCategory = useCallback(() => {
+    const name = window.prompt("New sub-category name:");
+    if (name?.trim()) {
+      const newPath = `${node.fullPath}/${name.trim()}`;
+      addCustomCategory(newPath);
+      setOpen(true);
+    }
+    setShowMenu(false);
+  }, [node.fullPath, addCustomCategory]);
+
+  const paddingLeft = depth * 12;
+
+  // Hierarchy colors based on depth
+  const bgColors = [
+    "bg-slate-50",
+    "bg-blue-50",
+    "bg-indigo-50",
+    "bg-purple-50",
+  ];
+  const hoverBgColors = [
+    "hover:bg-slate-100",
+    "hover:bg-blue-100",
+    "hover:bg-indigo-100",
+    "hover:bg-purple-100",
+  ];
+  const headerBg = bgColors[depth % bgColors.length];
+  const headerHover = hoverBgColors[depth % hoverBgColors.length];
+
+  // Close menu on click outside
+  useEffect(() => {
+    if (!showMenu) return;
+    const handler = () => setShowMenu(false);
+    document.addEventListener("click", handler);
+    return () => document.removeEventListener("click", handler);
+  }, [showMenu]);
 
   return (
     <div>
       {/* Category header */}
-      <div className="flex items-center group">
+      <div className={cn("flex items-center group", headerBg)}>
         <button
           onClick={() => setOpen(!open)}
           className={cn(
-            "flex items-center gap-1.5 flex-1 px-3 py-2 text-xs font-semibold",
+            "flex items-center gap-1.5 flex-1 py-2 text-xs font-semibold",
             "text-slate-500 uppercase tracking-wider hover:text-slate-700",
-            "transition-colors duration-100"
+            "transition-colors duration-100",
+            headerHover
           )}
+          style={{ paddingLeft: `${paddingLeft + 12}px` }}
           aria-expanded={open}
         >
           {open ? (
@@ -324,33 +438,59 @@ function CategorySection({
           ) : (
             <ChevronRight className="w-3.5 h-3.5 shrink-0" />
           )}
-          <span>{category}</span>
-          <span className="ml-auto text-slate-400 font-normal normal-case">
-            {definitions.length}
+          <span>{node.name}</span>
+          <span className="ml-auto text-slate-400 font-normal normal-case mr-2">
+            {hasDefinitions && node.definitions.length}
           </span>
         </button>
-        {/* Category action buttons */}
-        <div className="flex gap-0.5 pr-2 opacity-0 group-hover:opacity-100 transition-opacity">
-          {/* Add node button (all categories) */}
+        {/* Category action menu (three dots) */}
+        <div className="relative pr-2 opacity-0 group-hover:opacity-100 transition-opacity">
           <button
-            onClick={() => { setOpen(true); setAddingNode(true); }}
-            className="p-1 text-slate-400 hover:text-blue-500 rounded"
-            title="Add node to this category"
+            onClick={(e) => { e.stopPropagation(); setShowMenu(!showMenu); }}
+            className="p-1 text-slate-400 hover:text-slate-600 rounded"
+            title="Category options"
           >
-            <Plus className="w-3 h-3" />
+            <MoreVertical className="w-3.5 h-3.5" />
           </button>
-          {/* Edit/delete (custom categories only) */}
-          {isCustomCategory && (
-            <>
-              <button onClick={handleRenameCategory}
-                className="p-1 text-slate-400 hover:text-blue-500 rounded" title="Rename category">
-                <Pencil className="w-3 h-3" />
+          {showMenu && (
+            <div
+              className="absolute right-0 top-full mt-1 z-50 bg-white border border-slate-200 rounded-lg shadow-lg py-1 min-w-[160px]"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                onClick={() => { setOpen(true); setAddingNode(true); setShowMenu(false); }}
+                className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50"
+              >
+                <Plus className="w-3 h-3" />
+                Add node
               </button>
-              <button onClick={handleDeleteCategory}
-                className="p-1 text-slate-400 hover:text-red-500 rounded" title="Delete category">
-                <Trash2 className="w-3 h-3" />
+              <button
+                onClick={handleAddSubCategory}
+                className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50"
+              >
+                <Plus className="w-3 h-3" />
+                Add sub-category
               </button>
-            </>
+              {isCustomCategory && (
+                <>
+                  <hr className="my-1 border-slate-100" />
+                  <button
+                    onClick={() => { handleRenameCategory(); setShowMenu(false); }}
+                    className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50"
+                  >
+                    <Pencil className="w-3 h-3" />
+                    Rename
+                  </button>
+                  <button
+                    onClick={() => { handleDeleteCategory(); setShowMenu(false); }}
+                    className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-red-600 hover:bg-red-50"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                    Delete
+                  </button>
+                </>
+              )}
+            </div>
           )}
         </div>
       </div>
@@ -358,31 +498,49 @@ function CategorySection({
       {/* Category content */}
       {open && (
         <>
-          {/* Existing nodes */}
-          <div className="flex flex-col gap-0.5 pb-1">
-            {definitions.map((def) => (
-              editingNode === def.type ? (
-                <EditNodeForm
-                  key={def.type}
-                  definition={def}
-                  onClose={() => setEditingNode(null)}
-                />
-              ) : (
-                <NodePaletteItem
-                  key={def.type}
-                  definition={def}
-                  isCustom={customTypes.has(def.type)}
-                  onEdit={() => setEditingNode(def.type)}
-                  onDelete={() => onDeleteCustomNode(def.type)}
-                />
-              )
-            ))}
-          </div>
+          {/* Nodes at this level */}
+          {hasDefinitions && (
+            <div className="flex flex-col gap-0.5 pb-1" style={{ paddingLeft: `${paddingLeft}px` }}>
+              {node.definitions.map((def) => (
+                editingNode === def.type ? (
+                  <EditNodeForm
+                    key={def.type}
+                    definition={def}
+                    onClose={() => setEditingNode(null)}
+                  />
+                ) : (
+                  <NodePaletteItem
+                    key={def.type}
+                    definition={def}
+                    isCustom={customTypes.has(def.type)}
+                    onEdit={() => setEditingNode(def.type)}
+                    onDelete={() => onDeleteCustomNode(def.type)}
+                  />
+                )
+              ))}
+            </div>
+          )}
 
           {/* Add node form */}
           {addingNode && (
-            <AddNodeForm category={category} onClose={() => setAddingNode(false)} />
+            <div style={{ paddingLeft: `${paddingLeft}px` }}>
+              <AddNodeForm categoryPath={node.fullPath} onClose={() => setAddingNode(false)} />
+            </div>
           )}
+
+          {/* Nested subcategories */}
+          {hasChildren &&
+            Array.from(node.children.values()).map((child) => (
+              <CategorySection
+                key={child.fullPath}
+                node={child}
+                depth={depth + 1}
+                defaultOpen={defaultOpen}
+                isCustomCategory={isCustomCategory || !BUILTIN_CATEGORIES.has(child.fullPath)}
+                customTypes={customTypes}
+                onDeleteCustomNode={onDeleteCustomNode}
+              />
+            ))}
         </>
       )}
     </div>
@@ -409,7 +567,7 @@ export default function NodePalette() {
     [customCategories]
   );
 
-  const categorized = useMemo(() => {
+  const categoryTree = useMemo(() => {
     const all = nodeRegistry.getAll();
     const filtered = search.trim()
       ? all.filter(
@@ -420,24 +578,12 @@ export default function NodePalette() {
         )
       : all;
 
-    const categories = new Map<string, NodeDefinition[]>();
-    for (const def of filtered) {
-      const list = categories.get(def.category) ?? [];
-      list.push(def);
-      categories.set(def.category, list);
-    }
-    // Ensure empty custom categories appear
-    for (const cat of customCategories) {
-      if (!categories.has(cat)) {
-        categories.set(cat, []);
-      }
-    }
-    return categories;
+    return buildCategoryTree(filtered, customCategories);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search, registryVersion, customCategories]);
 
   const handleAddCategory = useCallback(() => {
-    const name = window.prompt("New category name:");
+    const name = window.prompt("New category path (e.g. Accounting/AR):");
     if (name?.trim()) {
       addCustomCategory(name.trim());
     }
@@ -486,18 +632,18 @@ export default function NodePalette() {
 
       {/* Categories */}
       <div className="flex-1 overflow-y-auto py-1">
-        {categorized.size === 0 ? (
+        {categoryTree.children.size === 0 ? (
           <div className="px-3 py-8 text-center text-sm text-slate-400">
             No nodes found
           </div>
         ) : (
-          Array.from(categorized.entries()).map(([category, defs], i) => (
+          Array.from(categoryTree.children.values()).map((rootNode, i) => (
             <CategorySection
-              key={category}
-              category={category}
-              definitions={defs}
+              key={rootNode.fullPath}
+              node={rootNode}
+              depth={0}
               defaultOpen={i === 0 || search.trim().length > 0}
-              isCustomCategory={customCatSet.has(category) || !BUILTIN_CATEGORIES.has(category)}
+              isCustomCategory={customCatSet.has(rootNode.fullPath) || !BUILTIN_CATEGORIES.has(rootNode.fullPath)}
               customTypes={customTypeSet}
               onDeleteCustomNode={handleDeleteCustomNode}
             />

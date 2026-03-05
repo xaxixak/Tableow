@@ -33,14 +33,24 @@ export default function Toolbar() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleSave = useCallback(() => {
-    // Save to file
     const data = getWorkflow();
+    const defaultName = data.metadata.name.replace(/\s+/g, "-").toLowerCase();
+
+    // Prompt user for filename
+    const fileName = window.prompt(
+      "Enter filename (without .json extension):",
+      defaultName
+    );
+
+    if (!fileName) return; // User cancelled
+
+    // Save to file
     const json = JSON.stringify(data, null, 2);
     const blob = new Blob([json], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `${data.metadata.name.replace(/\s+/g, "-").toLowerCase()}.json`;
+    a.download = `${fileName.replace(/\.json$/i, "")}.json`;
     a.click();
     URL.revokeObjectURL(url);
     // Also save to recent

@@ -175,8 +175,17 @@ function autoConnectEdges(
 ): WorkflowEdge[] {
   const { stages, placements } = gridConfig
 
-  // Build stage order map (leaf stages sorted by order)
-  const sortedStages = [...stages].sort((a, b) => a.order - b.order)
+  // Only consider LEAF stages (no children) - the actual columns where nodes are placed
+  const stageChildren = new Map<string, string[]>()
+  for (const s of stages) {
+    if (s.parentId) {
+      if (!stageChildren.has(s.parentId)) stageChildren.set(s.parentId, [])
+      stageChildren.get(s.parentId)!.push(s.id)
+    }
+  }
+
+  const leafStages = stages.filter((s) => !stageChildren.has(s.id))
+  const sortedStages = [...leafStages].sort((a, b) => a.order - b.order)
   const stageOrderIndex = new Map(sortedStages.map((s, i) => [s.id, i]))
 
   const thisOrder = stageOrderIndex.get(stageId)
@@ -285,9 +294,30 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
 
     if (placements.length === 0) return
 
-    // Build sorted index maps for lanes and stages
-    const sortedLanes = [...lanes].sort((a, b) => a.order - b.order)
-    const sortedStages = [...stages].sort((a, b) => a.order - b.order)
+    // Only consider LEAF lanes and stages (no children) - actual cells where nodes are placed
+    const laneChildren = new Map<string, string[]>()
+    const stageChildren = new Map<string, string[]>()
+
+    for (const l of lanes) {
+      if (l.parentId) {
+        if (!laneChildren.has(l.parentId)) laneChildren.set(l.parentId, [])
+        laneChildren.get(l.parentId)!.push(l.id)
+      }
+    }
+
+    for (const s of stages) {
+      if (s.parentId) {
+        if (!stageChildren.has(s.parentId)) stageChildren.set(s.parentId, [])
+        stageChildren.get(s.parentId)!.push(s.id)
+      }
+    }
+
+    const leafLanes = lanes.filter((l) => !laneChildren.has(l.id))
+    const leafStages = stages.filter((s) => !stageChildren.has(s.id))
+
+    // Build sorted index maps for leaf lanes and stages
+    const sortedLanes = [...leafLanes].sort((a, b) => a.order - b.order)
+    const sortedStages = [...leafStages].sort((a, b) => a.order - b.order)
     const laneIndex = new Map(sortedLanes.map((l, i) => [l.id, i]))
     const stageIndex = new Map(sortedStages.map((s, i) => [s.id, i]))
 
