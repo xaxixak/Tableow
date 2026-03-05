@@ -527,11 +527,12 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
 
     const oldDef = state.customNodeTypes[nodeDefIndex]
     let updatedDef = { ...oldDef, ...updates }
+    let categoryDef = undefined
 
     // If category changed, re-number the node
     if (updates.category && updates.category !== oldDef.category) {
       // Find or create target category
-      let categoryDef = state.customCategories.find((c) => c.path === updates.category)
+      categoryDef = state.customCategories.find((c) => c.path === updates.category)
       if (!categoryDef) {
         const number = getNextCategoryNumber(state.customCategories)
         categoryDef = {
