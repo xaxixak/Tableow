@@ -15,6 +15,8 @@ import { nodeRegistry } from "../../registry/index.ts";
 import { useWorkflowStore } from "../../store/workflowStore.ts";
 import type { NodeDefinition } from "../../types/index.ts";
 import { cn } from "../../lib/utils.ts";
+import { InputModal } from "../Modal/InputModal";
+import { ConfirmModal } from "../Modal/ConfirmModal";
 
 // --- Constants ---
 
@@ -372,6 +374,9 @@ function CategorySection({
   const [addingNode, setAddingNode] = useState(false);
   const [editingNode, setEditingNode] = useState<string | null>(null);
   const [showMenu, setShowMenu] = useState(false);
+  const [renameModalOpen, setRenameModalOpen] = useState(false);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [addSubModalOpen, setAddSubModalOpen] = useState(false);
   const removeCustomCategory = useWorkflowStore((s) => s.removeCustomCategory);
   const renameCustomCategory = useWorkflowStore((s) => s.renameCustomCategory);
   const addCustomCategory = useWorkflowStore((s) => s.addCustomCategory);
@@ -380,27 +385,39 @@ function CategorySection({
   const hasDefinitions = node.definitions.length > 0;
 
   const handleRenameCategory = useCallback(() => {
-    const newName = window.prompt("Rename category:", node.fullPath);
-    if (newName?.trim() && newName.trim() !== node.fullPath) {
-      renameCustomCategory(node.fullPath, newName.trim());
-    }
-  }, [node.fullPath, renameCustomCategory]);
+    setRenameModalOpen(true);
+  }, []);
+
+  const handleRenameSubmit = useCallback(
+    (newName: string) => {
+      if (newName.trim() !== node.fullPath) {
+        renameCustomCategory(node.fullPath, newName.trim());
+      }
+    },
+    [node.fullPath, renameCustomCategory]
+  );
 
   const handleDeleteCategory = useCallback(() => {
-    if (window.confirm(`Delete category "${node.fullPath}" and all its custom nodes?`)) {
-      removeCustomCategory(node.fullPath);
-    }
+    setDeleteModalOpen(true);
+  }, []);
+
+  const handleDeleteConfirm = useCallback(() => {
+    removeCustomCategory(node.fullPath);
   }, [node.fullPath, removeCustomCategory]);
 
   const handleAddSubCategory = useCallback(() => {
-    const name = window.prompt("New sub-category name:");
-    if (name?.trim()) {
+    setAddSubModalOpen(true);
+    setShowMenu(false);
+  }, []);
+
+  const handleAddSubSubmit = useCallback(
+    (name: string) => {
       const newPath = `${node.fullPath}/${name.trim()}`;
       addCustomCategory(newPath);
       setOpen(true);
-    }
-    setShowMenu(false);
-  }, [node.fullPath, addCustomCategory]);
+    },
+    [node.fullPath, addCustomCategory]
+  );
 
   const paddingLeft = depth * 12;
 
@@ -554,6 +571,34 @@ function CategorySection({
             ))}
         </>
       )}
+
+      {/* Modals */}
+      <InputModal
+        isOpen={renameModalOpen}
+        onClose={() => setRenameModalOpen(false)}
+        onSubmit={handleRenameSubmit}
+        title="Rename Category"
+        placeholder="Category name"
+        defaultValue={node.fullPath}
+      />
+
+      <ConfirmModal
+        isOpen={deleteModalOpen}
+        onClose={() => setDeleteModalOpen(false)}
+        onConfirm={handleDeleteConfirm}
+        title="Delete Category"
+        message={`Delete category "${node.fullPath}" and all its custom nodes?`}
+        confirmText="Delete"
+        variant="danger"
+      />
+
+      <InputModal
+        isOpen={addSubModalOpen}
+        onClose={() => setAddSubModalOpen(false)}
+        onSubmit={handleAddSubSubmit}
+        title="Add Sub-Category"
+        placeholder="Sub-category name"
+      />
     </div>
   );
 }
@@ -564,6 +609,9 @@ export default function NodePalette() {
   const [search, setSearch] = useState("");
   const [libraryOpen, setLibraryOpen] = useState(false); // Node Library collapsed by default
   const [myNodesOpen, setMyNodesOpen] = useState(true); // My Nodes expanded by default
+  const [addCategoryModalOpen, setAddCategoryModalOpen] = useState(false);
+  const [deleteNodeModalOpen, setDeleteNodeModalOpen] = useState(false);
+  const [nodeTypeToDelete, setNodeTypeToDelete] = useState<string>("");
   const registryVersion = useWorkflowStore((s) => s.registryVersion);
   const customNodeTypes = useWorkflowStore((s) => s.customNodeTypes);
   const customCategories = useWorkflowStore((s) => s.customCategories);
@@ -612,20 +660,26 @@ export default function NodePalette() {
   }, [search, registryVersion, customCategories, customTypeSet]);
 
   const handleAddCategory = useCallback(() => {
-    const name = window.prompt("New category path (e.g. Accounting/AR):");
-    if (name?.trim()) {
-      addCustomCategory(name.trim());
-    }
-  }, [addCustomCategory]);
+    setAddCategoryModalOpen(true);
+  }, []);
 
-  const handleDeleteCustomNode = useCallback(
-    (type: string) => {
-      if (window.confirm("Delete this node type?")) {
-        removeCustomNodeType(type);
-      }
+  const handleAddCategorySubmit = useCallback(
+    (name: string) => {
+      addCustomCategory(name.trim());
     },
-    [removeCustomNodeType]
+    [addCustomCategory]
   );
+
+  const handleDeleteCustomNode = useCallback((type: string) => {
+    setNodeTypeToDelete(type);
+    setDeleteNodeModalOpen(true);
+  }, []);
+
+  const handleDeleteNodeConfirm = useCallback(() => {
+    if (nodeTypeToDelete) {
+      removeCustomNodeType(nodeTypeToDelete);
+    }
+  }, [nodeTypeToDelete, removeCustomNodeType]);
 
   if (collapsed) {
     return (
@@ -771,6 +825,25 @@ export default function NodePalette() {
       <div className="px-3 py-2 border-t border-slate-200 text-xs text-slate-400 text-center">
         Drag a node onto the grid
       </div>
+
+      {/* Modals */}
+      <InputModal
+        isOpen={addCategoryModalOpen}
+        onClose={() => setAddCategoryModalOpen(false)}
+        onSubmit={handleAddCategorySubmit}
+        title="Add Category"
+        placeholder="Category path (e.g. Accounting/AR)"
+      />
+
+      <ConfirmModal
+        isOpen={deleteNodeModalOpen}
+        onClose={() => setDeleteNodeModalOpen(false)}
+        onConfirm={handleDeleteNodeConfirm}
+        title="Delete Node Type"
+        message="Delete this node type?"
+        confirmText="Delete"
+        variant="danger"
+      />
     </aside>
   );
 }

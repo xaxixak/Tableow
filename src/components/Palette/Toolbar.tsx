@@ -16,6 +16,8 @@ import {
 import { useWorkflowStore } from "../../store/workflowStore.ts";
 import type { Workflow } from "../../types/index.ts";
 import { cn } from "../../lib/utils.ts";
+import { InputModal } from "../Modal/InputModal";
+import { ConfirmModal } from "../Modal/ConfirmModal";
 
 export default function Toolbar() {
   const metadata = useWorkflowStore((s) => s.metadata);
@@ -34,32 +36,32 @@ export default function Toolbar() {
   const [nameValue, setNameValue] = useState(metadata.name);
   const [showRecent, setShowRecent] = useState(false);
   const [recentList, setRecentList] = useState<Workflow[]>([]);
+  const [saveModalOpen, setSaveModalOpen] = useState(false);
+  const [clearModalOpen, setClearModalOpen] = useState(false);
+  const [newWorkflowModalOpen, setNewWorkflowModalOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleSave = useCallback(() => {
-    const data = getWorkflow();
-    const defaultName = data.metadata.name.replace(/\s+/g, "-").toLowerCase();
+    setSaveModalOpen(true);
+  }, []);
 
-    // Prompt user for filename
-    const fileName = window.prompt(
-      "Enter filename (without .json extension):",
-      defaultName
-    );
-
-    if (!fileName) return; // User cancelled
-
-    // Save to file
-    const json = JSON.stringify(data, null, 2);
-    const blob = new Blob([json], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${fileName.replace(/\.json$/i, "")}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-    // Also save to recent
-    saveToRecent();
-  }, [getWorkflow, saveToRecent]);
+  const handleSaveSubmit = useCallback(
+    (fileName: string) => {
+      const data = getWorkflow();
+      // Save to file
+      const json = JSON.stringify(data, null, 2);
+      const blob = new Blob([json], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${fileName.replace(/\.json$/i, "")}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      // Also save to recent
+      saveToRecent();
+    },
+    [getWorkflow, saveToRecent]
+  );
 
   const handleQuickSave = useCallback(() => {
     saveToRecent();
@@ -103,21 +105,21 @@ export default function Toolbar() {
   }, [showRecent, getRecentSaves]);
 
   const handleClear = useCallback(() => {
-    if (window.confirm("Clear the entire workflow? This cannot be undone.")) {
-      clear();
-      setNameValue("Untitled Workflow");
-    }
+    setClearModalOpen(true);
+  }, []);
+
+  const handleClearConfirm = useCallback(() => {
+    clear();
+    setNameValue("Untitled Workflow");
   }, [clear]);
 
   const handleNewWorkflow = useCallback(() => {
-    if (
-      window.confirm(
-        "Create a new workflow? Unsaved changes will be lost."
-      )
-    ) {
-      clear();
-      setNameValue("Untitled Workflow");
-    }
+    setNewWorkflowModalOpen(true);
+  }, []);
+
+  const handleNewWorkflowConfirm = useCallback(() => {
+    clear();
+    setNameValue("Untitled Workflow");
   }, [clear]);
 
   const commitName = useCallback(() => {
@@ -342,6 +344,36 @@ export default function Toolbar() {
           <span className="hidden sm:inline">Clear</span>
         </button>
       </div>
+
+      {/* Modals */}
+      <InputModal
+        isOpen={saveModalOpen}
+        onClose={() => setSaveModalOpen(false)}
+        onSubmit={handleSaveSubmit}
+        title="Save Workflow"
+        placeholder="Filename (without .json)"
+        defaultValue={metadata.name.replace(/\s+/g, "-").toLowerCase()}
+      />
+
+      <ConfirmModal
+        isOpen={clearModalOpen}
+        onClose={() => setClearModalOpen(false)}
+        onConfirm={handleClearConfirm}
+        title="Clear Workflow"
+        message="Clear the entire workflow? This cannot be undone."
+        confirmText="Clear"
+        variant="danger"
+      />
+
+      <ConfirmModal
+        isOpen={newWorkflowModalOpen}
+        onClose={() => setNewWorkflowModalOpen(false)}
+        onConfirm={handleNewWorkflowConfirm}
+        title="New Workflow"
+        message="Create a new workflow? Unsaved changes will be lost."
+        confirmText="Create"
+        variant="danger"
+      />
     </header>
   );
 }
