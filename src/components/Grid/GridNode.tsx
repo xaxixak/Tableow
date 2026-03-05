@@ -83,6 +83,12 @@ function GridNode({ node }: GridNodeProps) {
   // Drag to move between cells
   const handleDragStart = useCallback(
     (e: DragEvent<HTMLDivElement>) => {
+      // Don't drag node if dragging from a port
+      const target = e.target as HTMLElement;
+      if (target.getAttribute('data-port-drag') === 'true') {
+        e.preventDefault();
+        return;
+      }
       e.dataTransfer.setData("application/grid-node-move", node.id);
       e.dataTransfer.effectAllowed = "move";
     },
@@ -238,6 +244,7 @@ function GridNode({ node }: GridNodeProps) {
               <span
                 key={`out-${i}`}
                 draggable
+                data-port-drag="true"
                 onDragStart={(e) => handleConnectionDragStart(e, i)}
                 onDragEnd={handleConnectionDragEnd}
                 className={cn(
