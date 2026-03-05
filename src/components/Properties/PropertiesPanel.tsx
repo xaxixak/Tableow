@@ -1,4 +1,4 @@
-import { useMemo, useCallback, useState, useRef } from "react";
+import { useMemo, useCallback, useState } from "react";
 import { Trash2, X, ChevronRight, Settings2, Plus, Edit, Trash } from "lucide-react";
 import { useWorkflowStore } from "../../store/workflowStore.ts";
 import { nodeRegistry } from "../../registry/index.ts";
@@ -110,7 +110,6 @@ export default function PropertiesPanel() {
   const [editCategory, setEditCategory] = useState("");
   const [configEditorOpen, setConfigEditorOpen] = useState(false);
   const [editingConfigField, setEditingConfigField] = useState<ConfigFieldDefinition | null>(null);
-  const processingPortChangeRef = useRef(false);
 
   const selectedNode = useMemo(
     () => nodes.find((n) => n.id === selectedNodeId),
@@ -454,32 +453,20 @@ export default function PropertiesPanel() {
                       <select
                         value={definition.inputs.length}
                         onChange={(e) => {
-                          if (!selectedNode || processingPortChangeRef.current) return;
-                          processingPortChangeRef.current = true;
-
+                          if (!selectedNode) return;
                           const targetCount = parseInt(e.target.value);
-                          const currentCount = definition.inputs.length;
 
-                          if (targetCount > currentCount) {
-                            // Add ports
-                            for (let i = currentCount; i < targetCount; i++) {
-                              addPortToCustomNode(selectedNode.type, 'input', {
-                                name: `in_${i + 1}`,
-                                type: 'document',
-                                label: `Input ${i + 1}`,
-                              });
-                            }
-                          } else if (targetCount < currentCount) {
-                            // Remove ports from end
-                            for (let i = currentCount - 1; i >= targetCount; i--) {
-                              removePortFromCustomNode(selectedNode.type, 'input', definition.inputs[i].name);
-                            }
-                          }
+                          // Generate the exact number of ports needed
+                          const newInputs = Array.from({ length: targetCount }, (_, i) => ({
+                            name: `in_${i + 1}`,
+                            type: 'document',
+                            label: `Input ${i + 1}`,
+                          }));
 
-                          // Reset flag after a short delay to allow store updates
-                          setTimeout(() => {
-                            processingPortChangeRef.current = false;
-                          }, 100);
+                          // Update the entire inputs array atomically
+                          updateCustomNodeDefinition(selectedNode.type, {
+                            inputs: newInputs,
+                          });
                         }}
                         className="w-full px-2.5 py-1.5 text-sm rounded-md border border-slate-200 bg-white dark:bg-zinc-800 dark:border-zinc-600 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400"
                       >
@@ -502,32 +489,20 @@ export default function PropertiesPanel() {
                       <select
                         value={definition.outputs.length}
                         onChange={(e) => {
-                          if (!selectedNode || processingPortChangeRef.current) return;
-                          processingPortChangeRef.current = true;
-
+                          if (!selectedNode) return;
                           const targetCount = parseInt(e.target.value);
-                          const currentCount = definition.outputs.length;
 
-                          if (targetCount > currentCount) {
-                            // Add ports
-                            for (let i = currentCount; i < targetCount; i++) {
-                              addPortToCustomNode(selectedNode.type, 'output', {
-                                name: `out_${i + 1}`,
-                                type: 'document',
-                                label: `Output ${i + 1}`,
-                              });
-                            }
-                          } else if (targetCount < currentCount) {
-                            // Remove ports from end
-                            for (let i = currentCount - 1; i >= targetCount; i--) {
-                              removePortFromCustomNode(selectedNode.type, 'output', definition.outputs[i].name);
-                            }
-                          }
+                          // Generate the exact number of ports needed
+                          const newOutputs = Array.from({ length: targetCount }, (_, i) => ({
+                            name: `out_${i + 1}`,
+                            type: 'document',
+                            label: `Output ${i + 1}`,
+                          }));
 
-                          // Reset flag after a short delay to allow store updates
-                          setTimeout(() => {
-                            processingPortChangeRef.current = false;
-                          }, 100);
+                          // Update the entire outputs array atomically
+                          updateCustomNodeDefinition(selectedNode.type, {
+                            outputs: newOutputs,
+                          });
                         }}
                         className="w-full px-2.5 py-1.5 text-sm rounded-md border border-slate-200 bg-white dark:bg-zinc-800 dark:border-zinc-600 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400"
                       >
