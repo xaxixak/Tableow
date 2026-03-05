@@ -1104,6 +1104,8 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       }
     }
 
+    // Get fresh state after cloneNodeDefinition (which increments registryVersion)
+    const freshState = get()
     const definition = nodeRegistry.get(nodeType)
     const id = crypto.randomUUID()
     const newNode: WorkflowNode = {
@@ -1114,13 +1116,14 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
         definitionType: nodeType,
         label: definition?.label ?? nodeType,
         config: definition?.defaultConfig ? { ...definition.defaultConfig } : {},
-        _version: state.registryVersion, // Force React Flow to render properly on creation
+        _version: freshState.registryVersion, // Use fresh registryVersion after clone
       },
     }
-    const newNodes = [...state.nodes, newNode]
+    const newNodes = [...freshState.nodes, newNode]
     set({
       nodes: newNodes,
-      ...pushHistory({ ...state, nodes: newNodes }),
+      registryVersion: freshState.registryVersion + 1, // Increment to trigger BaseNode re-render
+      ...pushHistory({ ...freshState, nodes: newNodes }),
     })
   },
 
