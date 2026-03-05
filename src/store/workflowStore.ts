@@ -267,7 +267,7 @@ function baseTypeToPorts(baseType: string): { inputs: NodeDefinition['inputs']; 
   switch (baseType) {
     case 'decision':
       return {
-        inputs: [{ name: 'document', type: 'document', label: 'Document' }],
+        inputs: [{ name: 'in', type: 'document', label: 'In' }],
         outputs: [
           { name: 'yes', type: 'document', label: 'Yes' },
           { name: 'no', type: 'document', label: 'No' },
@@ -275,24 +275,34 @@ function baseTypeToPorts(baseType: string): { inputs: NodeDefinition['inputs']; 
       }
     case 'start':
       return {
-        inputs: [],
-        outputs: [{ name: 'out', type: 'flow', label: 'Out' }],
+        inputs: [{ name: 'trigger', type: 'flow', label: 'Trigger' }],
+        outputs: [{ name: 'out', type: 'flow', label: 'Start' }],
       }
     case 'output':
       return {
-        inputs: [{ name: 'document', type: 'document', label: 'Document' }],
-        outputs: [],
+        inputs: [{ name: 'in', type: 'document', label: 'In' }],
+        outputs: [{ name: 'result', type: 'document', label: 'Result' }],
+      }
+    case 'end':
+      return {
+        inputs: [{ name: 'in', type: 'flow', label: 'In' }],
+        outputs: [{ name: 'done', type: 'flow', label: 'Done' }],
+      }
+    case 'subprocess':
+      return {
+        inputs: [{ name: 'in', type: 'document', label: 'In' }],
+        outputs: [{ name: 'out', type: 'document', label: 'Out' }],
       }
     case 'document':
       return {
-        inputs: [{ name: 'in', type: 'document', label: 'Input' }],
-        outputs: [{ name: 'out', type: 'document', label: 'Output' }],
+        inputs: [{ name: 'in', type: 'document', label: 'In' }],
+        outputs: [{ name: 'out', type: 'document', label: 'Out' }],
       }
     case 'process':
     default:
       return {
-        inputs: [{ name: 'in', type: 'document', label: 'Input' }],
-        outputs: [{ name: 'out', type: 'document', label: 'Output' }],
+        inputs: [{ name: 'in', type: 'document', label: 'In' }],
+        outputs: [{ name: 'out', type: 'document', label: 'Out' }],
       }
   }
 }

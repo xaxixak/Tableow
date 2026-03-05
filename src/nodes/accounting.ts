@@ -255,7 +255,7 @@ export const reportNode: NodeDefinition = {
   description: "Generate a financial report",
   icon: "\uD83D\uDCCA",
   inputs: [{ name: "data", type: "document", label: "Data" }],
-  outputs: [],
+  outputs: [{ name: "report", type: "document", label: "Report" }],
   configSchema: [
     {
       key: "reportType",

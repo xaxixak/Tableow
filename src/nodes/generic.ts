@@ -6,7 +6,7 @@ export const startNode: NodeDefinition = {
   category: "General",
   description: "Entry point of the workflow",
   icon: "\u25B6",
-  inputs: [],
+  inputs: [{ name: "trigger", type: "flow", label: "Trigger" }],
   outputs: [{ name: "flow", type: "flow", label: "Out" }],
   color: "bg-emerald-600",
   flowType: "start",
@@ -64,7 +64,7 @@ export const outputNode: NodeDefinition = {
   description: "End point that produces output",
   icon: "\u2B24",
   inputs: [{ name: "flow", type: "flow", label: "In" }],
-  outputs: [],
+  outputs: [{ name: "result", type: "flow", label: "Result" }],
   configSchema: [
     {
       key: "outputType",
@@ -89,8 +89,8 @@ export const noteNode: NodeDefinition = {
   category: "General",
   description: "A sticky note for comments",
   icon: "\uD83D\uDCDD",
-  inputs: [],
-  outputs: [],
+  inputs: [{ name: "in", type: "flow", label: "In" }],
+  outputs: [{ name: "out", type: "flow", label: "Out" }],
   configSchema: [
     {
       key: "text",
