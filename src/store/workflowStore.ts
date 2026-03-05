@@ -237,6 +237,8 @@ function autoConnectEdges(
           id: `e-${p.nodeId}-${nodeId}`,
           source: p.nodeId,
           target: nodeId,
+          sourceHandle: 'out',
+          targetHandle: 'in',
         })
       }
     }
@@ -255,6 +257,8 @@ function autoConnectEdges(
           id: `e-${nodeId}-${p.nodeId}`,
           source: nodeId,
           target: p.nodeId,
+          sourceHandle: 'out',
+          targetHandle: 'in',
         })
       }
     }
