@@ -208,7 +208,7 @@ function pushHistory(state: {
  * Helper to get the first output/input port name from a node
  */
 function getDefaultPortNames(node: WorkflowNode | undefined): { output: string; input: string } {
-  if (!node) return { output: 'out', input: 'in' }
+  if (!node?.type) return { output: 'out', input: 'in' }
 
   const def = nodeRegistry.get(node.type)
   if (!def) return { output: 'out', input: 'in' }
@@ -767,7 +767,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
 
     const updatedDef = {
       ...oldDef,
-      configSchema: [...configSchema, field],
+      configSchema: [...configSchema, field] as ConfigFieldDefinition[],
     }
 
     nodeRegistry.register(updatedDef)
@@ -833,7 +833,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
 
     const updatedDef = {
       ...oldDef,
-      configSchema: updatedFields,
+      configSchema: updatedFields as ConfigFieldDefinition[],
     }
 
     nodeRegistry.register(updatedDef)
@@ -863,8 +863,6 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       outputs: ports.outputs,
       configSchema: [],
       defaultConfig: {},
-      flowType: input.baseType as any,
-      documentType: input.documentType || undefined,
       customizable: true,
       isCustom: true,
     }
@@ -1191,7 +1189,6 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   // --- Node operations ---
 
   addNode: (definitionType, position) => {
-    const state = get()
     let nodeType = definitionType
 
     // Auto-clone built-in nodes to create customizable copies
@@ -1293,7 +1290,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     const edgeNumber = getNextEdgeNumber(state.edges)
 
     // Create connection with data
-    const connection = {
+    const connection: any = {
       ...params,
       label: edgeNumber, // React Flow uses this for canvas display
       data: {
@@ -1382,7 +1379,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     for (const node of workflow.nodes) {
       const nodeType = node.type
       // Check if this is a custom type that's not defined
-      if (nodeType.startsWith('custom.') && !existingCustomTypes.has(nodeType)) {
+      if (nodeType && nodeType.startsWith('custom.') && !existingCustomTypes.has(nodeType)) {
         if (!missingTypes.has(nodeType)) {
           // Create standard document node definition
           const label = (node.data.label as string) || nodeType.replace('custom.', '').replace(/-/g, ' ')

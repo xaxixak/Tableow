@@ -101,9 +101,6 @@ export default function PropertiesPanel() {
   const customCategories = useWorkflowStore((s) => s.customCategories);
   const registryVersion = useWorkflowStore((s) => s.registryVersion);
   const updateCustomNodeDefinition = useWorkflowStore((s) => s.updateCustomNodeDefinition);
-  const addPortToCustomNode = useWorkflowStore((s) => s.addPortToCustomNode);
-  const removePortFromCustomNode = useWorkflowStore((s) => s.removePortFromCustomNode);
-  const updatePortOnCustomNode = useWorkflowStore((s) => s.updatePortOnCustomNode);
   const addConfigFieldToCustomNode = useWorkflowStore((s) => s.addConfigFieldToCustomNode);
   const removeConfigFieldFromCustomNode = useWorkflowStore((s) => s.removeConfigFieldFromCustomNode);
   const updateConfigFieldOnCustomNode = useWorkflowStore((s) => s.updateConfigFieldOnCustomNode);
@@ -112,7 +109,6 @@ export default function PropertiesPanel() {
   const [editLabel, setEditLabel] = useState("");
   const [editDescription, setEditDescription] = useState("");
   const [editCategory, setEditCategory] = useState("");
-  const [editFlowType, setEditFlowType] = useState<"start" | "process" | "decision" | "output" | "end" | "subprocess" | "document">("process");
   const [configEditorOpen, setConfigEditorOpen] = useState(false);
   const [editingConfigField, setEditingConfigField] = useState<ConfigFieldDefinition | null>(null);
 
@@ -179,7 +175,6 @@ export default function PropertiesPanel() {
       setEditLabel(definition.label);
       setEditDescription(definition.description ?? "");
       setEditCategory(definition.category);
-      setEditFlowType(definition.flowType);
     }
     setEditMode(!editMode);
   }, [editMode, definition]);
@@ -191,11 +186,10 @@ export default function PropertiesPanel() {
       label: editLabel,
       description: editDescription,
       category: editCategory,
-      flowType: editFlowType,
     });
 
     setEditMode(false);
-  }, [selectedNode, definition, editLabel, editDescription, editCategory, editFlowType, updateCustomNodeDefinition]);
+  }, [selectedNode, definition, editLabel, editDescription, editCategory, updateCustomNodeDefinition]);
 
   const handleCancelEdit = useCallback(() => {
     setEditMode(false);
@@ -545,7 +539,7 @@ export default function PropertiesPanel() {
                       <select
                         value={definition.inputs.length}
                         onChange={(e) => {
-                          if (!selectedNode) return;
+                          if (!selectedNode?.type) return;
                           const targetCount = parseInt(e.target.value);
 
                           // Generate the exact number of ports needed
@@ -581,7 +575,7 @@ export default function PropertiesPanel() {
                       <select
                         value={definition.outputs.length}
                         onChange={(e) => {
-                          if (!selectedNode) return;
+                          if (!selectedNode?.type) return;
                           const targetCount = parseInt(e.target.value);
 
                           // Generate the exact number of ports needed
