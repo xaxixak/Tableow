@@ -1295,6 +1295,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     // Create connection with data
     const connection = {
       ...params,
+      label: edgeNumber, // React Flow uses this for canvas display
       data: {
         number: edgeNumber,
         label: '',
@@ -1326,17 +1327,20 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
 
   updateEdge: (id, data) => {
     const state = get()
-    const newEdges = state.edges.map((edge) =>
-      edge.id === id
-        ? {
-            ...edge,
-            data: {
-              ...edge.data,
-              ...data,
-            },
-          }
-        : edge
-    )
+    const newEdges = state.edges.map((edge) => {
+      if (edge.id !== id) return edge
+
+      const updatedData = { ...edge.data, ...data }
+      // Update top-level label for React Flow canvas display
+      // Show custom label if set, otherwise show edge number
+      const displayLabel = updatedData.label || updatedData.number || ''
+
+      return {
+        ...edge,
+        label: displayLabel,
+        data: updatedData,
+      }
+    })
     set({
       edges: newEdges,
       ...pushHistory({ ...state, edges: newEdges }),
@@ -1441,16 +1445,26 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     for (const def of allCustomTypes) {
       nodeRegistry.register(def)
     }
+
+    // Process edges to ensure top-level label is set for React Flow canvas display
+    const processedEdges = workflow.edges.map((edge) => {
+      const displayLabel = edge.data?.label || edge.data?.number || ''
+      return {
+        ...edge,
+        label: displayLabel,
+      }
+    })
+
     set({
       nodes: workflow.nodes,
-      edges: workflow.edges,
+      edges: processedEdges,
       metadata: workflow.metadata,
       gridConfig,
       customNodeTypes: allCustomTypes,
       customCategories: customCats,
       registryVersion: get().registryVersion + 1,
       selectedNodeId: null,
-      history: [{ nodes: workflow.nodes, edges: workflow.edges, gridConfig }],
+      history: [{ nodes: workflow.nodes, edges: processedEdges, gridConfig }],
       historyIndex: 0,
     })
   },
