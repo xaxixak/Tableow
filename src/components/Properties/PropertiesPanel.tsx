@@ -90,6 +90,7 @@ function ConfigFieldDefinitionInput({
 export default function PropertiesPanel() {
   const selectedNodeId = useWorkflowStore((s) => s.selectedNodeId);
   const nodes = useWorkflowStore((s) => s.nodes);
+  const edges = useWorkflowStore((s) => s.edges);
   const updateNodeConfig = useWorkflowStore((s) => s.updateNodeConfig);
   const removeNode = useWorkflowStore((s) => s.removeNode);
   const selectNode = useWorkflowStore((s) => s.selectNode);
@@ -122,6 +123,26 @@ export default function PropertiesPanel() {
     if (!selectedNode?.type) return undefined;
     return nodeRegistry.get(selectedNode.type);
   }, [selectedNode?.type, registryVersion]);
+
+  // Get connected nodes
+  const connectedNodes = useMemo(() => {
+    if (!selectedNodeId) return { inputs: [], outputs: [] };
+
+    const inputEdges = edges.filter((e) => e.target === selectedNodeId);
+    const outputEdges = edges.filter((e) => e.source === selectedNodeId);
+
+    const inputNodes = inputEdges.map((e) => {
+      const sourceNode = nodes.find((n) => n.id === e.source);
+      return sourceNode?.data?.label || sourceNode?.type || 'Unknown';
+    });
+
+    const outputNodes = outputEdges.map((e) => {
+      const targetNode = nodes.find((n) => n.id === e.target);
+      return targetNode?.data?.label || targetNode?.type || 'Unknown';
+    });
+
+    return { inputs: inputNodes, outputs: outputNodes };
+  }, [selectedNodeId, edges, nodes]);
 
   const config = selectedNode?.data?.config as
     | Record<string, unknown>
@@ -309,7 +330,7 @@ export default function PropertiesPanel() {
           </div>
         </div>
 
-        {/* Ports info */}
+        {/* Ports info - show connected nodes */}
         <div className="px-4 py-3 border-b border-slate-100 dark:border-zinc-800">
           <div className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">
             Ports
@@ -318,19 +339,17 @@ export default function PropertiesPanel() {
             <div>
               <span className="text-slate-400 dark:text-slate-500">Inputs:</span>{" "}
               <span className="text-slate-700 dark:text-slate-300">
-                {definition.inputs.length === 0
+                {connectedNodes.inputs.length === 0
                   ? "None"
-                  : definition.inputs.map((p) => p.label ?? p.name).join(", ")}
+                  : connectedNodes.inputs.join(", ")}
               </span>
             </div>
             <div>
               <span className="text-slate-400 dark:text-slate-500">Outputs:</span>{" "}
               <span className="text-slate-700 dark:text-slate-300">
-                {definition.outputs.length === 0
+                {connectedNodes.outputs.length === 0
                   ? "None"
-                  : definition.outputs
-                      .map((p) => p.label ?? p.name)
-                      .join(", ")}
+                  : connectedNodes.outputs.join(", ")}
               </span>
             </div>
           </div>
