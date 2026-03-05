@@ -3,6 +3,7 @@ export type {
   PortDefinition,
   ConfigFieldDefinition,
   NodeCategory,
+  CategoryDefinition,
   NodeDefinition,
 } from './node.ts'
 

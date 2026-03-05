@@ -55,7 +55,7 @@ interface CategoryNode {
 
 function buildCategoryTree(
   definitions: NodeDefinition[],
-  customCategories: string[]
+  customCategories: import("../../types/index.ts").CategoryDefinition[]
 ): CategoryNode {
   const root: CategoryNode = {
     name: "",
@@ -91,7 +91,7 @@ function buildCategoryTree(
 
   // Ensure empty custom categories appear
   for (const cat of customCategories) {
-    const parts = cat.split("/").map((p) => p.trim()).filter(Boolean);
+    const parts = cat.path.split("/").map((p) => p.trim()).filter(Boolean);
     let current = root;
     let pathSoFar = "";
 

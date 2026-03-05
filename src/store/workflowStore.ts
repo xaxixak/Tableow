@@ -17,8 +17,14 @@ import type {
   LaneDefinition,
   StageDefinition,
   NodeDefinition,
+  CategoryDefinition,
 } from '@/types/index.ts'
 import { nodeRegistry } from '@/registry/index.ts'
+import {
+  getNextCategoryNumber,
+  getNextNodeNumber,
+  getNextEdgeNumber,
+} from '@/utils/numbering.ts'
 
 interface HistoryEntry {
   nodes: WorkflowNode[]
@@ -92,12 +98,13 @@ export interface WorkflowState {
   unplaceNode: (nodeId: string) => void
 
   // Custom categories and node types (user-created)
-  customCategories: string[]
+  customCategories: CategoryDefinition[]
   customNodeTypes: NodeDefinition[]
   registryVersion: number
-  addCustomCategory: (name: string) => void
-  removeCustomCategory: (name: string) => void
-  renameCustomCategory: (oldName: string, newName: string) => void
+  addCustomCategory: (path: string) => void
+  removeCustomCategory: (path: string) => void
+  renameCustomCategory: (oldPath: string, newPath: string) => void
+  cloneNodeDefinition: (sourceType: string, targetCategory?: string) => string | null
   addCustomNodeType: (input: {
     label: string
     category: string
@@ -388,45 +395,116 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
 
   // --- Custom categories & node types ---
 
-  addCustomCategory: (name) => {
+  addCustomCategory: (path) => {
     const state = get()
-    if (!state.customCategories.includes(name)) {
-      set({
-        customCategories: [...state.customCategories, name],
-        registryVersion: state.registryVersion + 1,
-      })
+    // Check if category already exists
+    if (state.customCategories.some((c) => c.path === path)) {
+      return
     }
-  },
 
-  removeCustomCategory: (name) => {
-    const state = get()
-    // Remove category and all custom nodes in it
-    const typesToRemove = state.customNodeTypes
-      .filter((d) => d.category === name)
-      .map((d) => d.type)
-    for (const t of typesToRemove) nodeRegistry.unregister(t)
+    // Auto-assign category number
+    const number = getNextCategoryNumber(state.customCategories)
+    const order = state.customCategories.length
+
+    const newCategory: CategoryDefinition = {
+      path,
+      number,
+      order,
+    }
+
     set({
-      customCategories: state.customCategories.filter((c) => c !== name),
-      customNodeTypes: state.customNodeTypes.filter((d) => d.category !== name),
+      customCategories: [...state.customCategories, newCategory],
       registryVersion: state.registryVersion + 1,
     })
   },
 
-  renameCustomCategory: (oldName, newName) => {
+  removeCustomCategory: (path) => {
+    const state = get()
+    // Remove category and all custom nodes in it
+    const typesToRemove = state.customNodeTypes
+      .filter((d) => d.category === path)
+      .map((d) => d.type)
+    for (const t of typesToRemove) nodeRegistry.unregister(t)
+    set({
+      customCategories: state.customCategories.filter((c) => c.path !== path),
+      customNodeTypes: state.customNodeTypes.filter((d) => d.category !== path),
+      registryVersion: state.registryVersion + 1,
+    })
+  },
+
+  renameCustomCategory: (oldPath, newPath) => {
     const state = get()
     const updatedTypes = state.customNodeTypes.map((d) => {
-      if (d.category === oldName) {
-        const updated = { ...d, category: newName }
+      if (d.category === oldPath) {
+        const updated = { ...d, category: newPath }
         nodeRegistry.register(updated)
         return updated
       }
       return d
     })
     set({
-      customCategories: state.customCategories.map((c) => c === oldName ? newName : c),
+      customCategories: state.customCategories.map((c) =>
+        c.path === oldPath ? { ...c, path: newPath } : c
+      ),
       customNodeTypes: updatedTypes,
       registryVersion: state.registryVersion + 1,
     })
+  },
+
+  cloneNodeDefinition: (sourceType, targetCategory) => {
+    const state = get()
+    const sourceDef = nodeRegistry.get(sourceType)
+    if (!sourceDef) {
+      console.error(`Cannot clone: Node definition "${sourceType}" not found in registry`)
+      return null
+    }
+
+    // Determine target category (use provided or default to "My Nodes")
+    const category = targetCategory ?? "My Nodes"
+
+    // Find or create category
+    let categoryDef = state.customCategories.find((c) => c.path === category)
+    if (!categoryDef) {
+      // Auto-create category if it doesn't exist
+      const number = getNextCategoryNumber(state.customCategories)
+      categoryDef = {
+        path: category,
+        number,
+        order: state.customCategories.length,
+      }
+      state.customCategories.push(categoryDef)
+    }
+
+    // Generate unique type ID
+    const slug = sourceDef.label.toLowerCase().replace(/[^a-z0-9]+/g, '-')
+    const type = `custom.${slug}-${crypto.randomUUID().slice(0, 8)}`
+
+    // Auto-assign node number
+    const nodeNumber = getNextNodeNumber(categoryDef.number, state.customNodeTypes)
+
+    // Clone the definition
+    const clonedDef: NodeDefinition = {
+      ...sourceDef,
+      type,
+      category,
+      sourceTemplateType: sourceType,
+      isCustom: true,
+      customizable: true,
+      number: nodeNumber,
+      categoryNumber: categoryDef.number,
+    }
+
+    // Register in registry
+    nodeRegistry.register(clonedDef)
+
+    // Update state
+    set({
+      customCategories: categoryDef ? [...state.customCategories] : state.customCategories,
+      customNodeTypes: [...state.customNodeTypes, clonedDef],
+      registryVersion: state.registryVersion + 1,
+    })
+
+    return type
   },
 
   addCustomNodeType: (input) => {
@@ -732,19 +810,29 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   // --- Node operations ---
 
   addNode: (definitionType, position) => {
-    const definition = nodeRegistry.get(definitionType)
+    const state = get()
+    let nodeType = definitionType
+
+    // Auto-clone built-in nodes to create customizable copies
+    if (!definitionType.startsWith('custom.')) {
+      const clonedType = get().cloneNodeDefinition(definitionType)
+      if (clonedType) {
+        nodeType = clonedType
+      }
+    }
+
+    const definition = nodeRegistry.get(nodeType)
     const id = crypto.randomUUID()
     const newNode: WorkflowNode = {
       id,
-      type: definitionType,
+      type: nodeType,
       position,
       data: {
-        definitionType,
-        label: definition?.label ?? definitionType,
+        definitionType: nodeType,
+        label: definition?.label ?? nodeType,
         config: definition?.defaultConfig ? { ...definition.defaultConfig } : {},
       },
     }
-    const state = get()
     const newNodes = [...state.nodes, newNode]
     set({
       nodes: newNodes,
@@ -802,7 +890,22 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   loadWorkflow: (workflow) => {
     const gridConfig = workflow.gridConfig ?? { lanes: [], stages: [], placements: [] }
     const customTypes = workflow.customNodeTypes ?? []
-    const customCats = workflow.customCategories ?? []
+    const rawCustomCats = workflow.customCategories ?? []
+
+    // Backwards compatibility: convert old string[] format to CategoryDefinition[]
+    let customCats: CategoryDefinition[]
+    if (rawCustomCats.length > 0 && typeof rawCustomCats[0] === 'string') {
+      // Old format - migrate to new format with auto-numbering
+      customCats = (rawCustomCats as unknown as string[]).map((path, index) => ({
+        path,
+        number: `C${index + 1}`,
+        order: index,
+      }))
+    } else {
+      // New format - use as is
+      customCats = rawCustomCats as CategoryDefinition[]
+    }
+
     // Register custom types into the registry
     for (const def of customTypes) {
       nodeRegistry.register(def)

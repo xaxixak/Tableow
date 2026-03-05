@@ -1,5 +1,5 @@
 import type { Node, Edge } from '@xyflow/react'
-import type { NodeDefinition } from './node.ts'
+import type { NodeDefinition, CategoryDefinition } from './node.ts'
 import type { GridConfig } from './grid.ts'
 
 /**
@@ -33,6 +33,12 @@ export type WorkflowNode = Node<WorkflowNodeData>
 export type WorkflowEdge = Edge<{
   /** Label shown on the connection */
   label?: string
+  /** System auto-generated edge number (e.g., "E1", "E5") */
+  number?: string
+  /** Edge description/notes */
+  description?: string
+  /** Custom edge properties for business logic */
+  properties?: Record<string, unknown>
 }>
 
 /**
@@ -57,6 +63,6 @@ export interface Workflow {
   gridConfig?: GridConfig
   /** User-created node type definitions (persisted with the workflow) */
   customNodeTypes?: NodeDefinition[]
-  /** User-created category names (persisted with the workflow) */
-  customCategories?: string[]
+  /** User-created category definitions with auto-numbering (persisted with the workflow) */
+  customCategories?: CategoryDefinition[]
 }
