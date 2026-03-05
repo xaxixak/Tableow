@@ -38,6 +38,7 @@ function GridNode({ node }: GridNodeProps) {
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [isConnectionDragTarget, setIsConnectionDragTarget] = useState(false);
   const nodeRef = useRef<HTMLDivElement>(null);
+  const isDraggingConnection = useRef(false);
 
   const definition = useMemo(() => {
     return node.type ? nodeRegistry.get(node.type) : undefined;
@@ -83,10 +84,10 @@ function GridNode({ node }: GridNodeProps) {
   // Drag to move between cells
   const handleDragStart = useCallback(
     (e: DragEvent<HTMLDivElement>) => {
-      // Don't drag node if dragging from a port
-      const target = e.target as HTMLElement;
-      if (target.getAttribute('data-port-drag') === 'true') {
+      // Don't drag node if currently dragging a connection
+      if (isDraggingConnection.current) {
         e.preventDefault();
+        e.stopPropagation();
         return;
       }
       e.dataTransfer.setData("application/grid-node-move", node.id);
@@ -99,6 +100,7 @@ function GridNode({ node }: GridNodeProps) {
   const handleConnectionDragStart = useCallback(
     (e: DragEvent<HTMLSpanElement>, outputIndex: number) => {
       e.stopPropagation(); // Don't trigger node drag
+      isDraggingConnection.current = true;
       const outputPort = definition?.outputs?.[outputIndex];
       const handleId = outputPort?.name || `out_${outputIndex + 1}`;
       e.dataTransfer.setData("application/grid-connection-source", node.id);
@@ -126,6 +128,7 @@ function GridNode({ node }: GridNodeProps) {
 
   const handleConnectionDragEnd = useCallback(() => {
     // Clear drag target state when drag ends (whether successful or not)
+    isDraggingConnection.current = false;
     setIsConnectionDragTarget(false);
   }, []);
 
@@ -133,6 +136,7 @@ function GridNode({ node }: GridNodeProps) {
     (e: DragEvent<HTMLSpanElement>, inputIndex: number) => {
       e.preventDefault();
       e.stopPropagation();
+      isDraggingConnection.current = false;
       setIsConnectionDragTarget(false);
 
       const sourceNodeId = e.dataTransfer.getData("application/grid-connection-source");
@@ -244,7 +248,6 @@ function GridNode({ node }: GridNodeProps) {
               <span
                 key={`out-${i}`}
                 draggable
-                data-port-drag="true"
                 onDragStart={(e) => handleConnectionDragStart(e, i)}
                 onDragEnd={handleConnectionDragEnd}
                 className={cn(
