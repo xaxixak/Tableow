@@ -9,6 +9,7 @@ export const startNode: NodeDefinition = {
   inputs: [],
   outputs: [{ name: "flow", type: "flow", label: "Out" }],
   color: "bg-emerald-600",
+  flowType: "start",
 };
 
 export const processNode: NodeDefinition = {
@@ -29,6 +30,7 @@ export const processNode: NodeDefinition = {
   ],
   defaultConfig: { description: "" },
   color: "bg-violet-600",
+  flowType: "process",
 };
 
 export const decisionNode: NodeDefinition = {
@@ -52,6 +54,7 @@ export const decisionNode: NodeDefinition = {
   ],
   defaultConfig: { condition: "" },
   color: "bg-sky-600",
+  flowType: "decision",
 };
 
 export const outputNode: NodeDefinition = {
@@ -77,6 +80,7 @@ export const outputNode: NodeDefinition = {
   ],
   defaultConfig: { outputType: "log" },
   color: "bg-amber-600",
+  flowType: "output",
 };
 
 export const noteNode: NodeDefinition = {
@@ -97,6 +101,7 @@ export const noteNode: NodeDefinition = {
   ],
   defaultConfig: { text: "" },
   color: "bg-yellow-500",
+  flowType: "process",
 };
 
 export const genericNodes: NodeDefinition[] = [

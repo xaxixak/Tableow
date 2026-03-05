@@ -30,6 +30,8 @@ export const invoiceNode: NodeDefinition = {
   ],
   defaultConfig: { invoiceType: "sales", amount: 0 },
   color: "bg-blue-600",
+  flowType: "process",
+  documentType: "invoice",
 };
 
 export const receiptNode: NodeDefinition = {
@@ -55,6 +57,8 @@ export const receiptNode: NodeDefinition = {
   ],
   defaultConfig: { method: "bank" },
   color: "bg-green-600",
+  flowType: "process",
+  documentType: "receipt",
 };
 
 export const goodsReceiptNode: NodeDefinition = {
@@ -75,6 +79,8 @@ export const goodsReceiptNode: NodeDefinition = {
   ],
   defaultConfig: { warehouse: "" },
   color: "bg-emerald-600",
+  flowType: "process",
+  documentType: "goods-receipt",
 };
 
 // --- AP (Accounts Payable) ---
@@ -103,6 +109,8 @@ export const billNode: NodeDefinition = {
   ],
   defaultConfig: { vendor: "", amount: 0 },
   color: "bg-orange-600",
+  flowType: "process",
+  documentType: "bill",
 };
 
 export const purchaseRequestBillNode: NodeDefinition = {
@@ -143,6 +151,8 @@ export const purchaseRequestBillNode: NodeDefinition = {
   ],
   defaultConfig: { department: "", vendor: "", urgency: "medium" },
   color: "bg-amber-600",
+  flowType: "process",
+  documentType: "purchase-request",
 };
 
 export const purchaseRequestNoBillNode: NodeDefinition = {
@@ -174,6 +184,8 @@ export const purchaseRequestNoBillNode: NodeDefinition = {
   ],
   defaultConfig: { department: "", urgency: "medium" },
   color: "bg-yellow-600",
+  flowType: "process",
+  documentType: "purchase-request",
 };
 
 export const paymentVoucherNode: NodeDefinition = {
@@ -199,6 +211,8 @@ export const paymentVoucherNode: NodeDefinition = {
   ],
   defaultConfig: { method: "bank" },
   color: "bg-indigo-600",
+  flowType: "process",
+  documentType: "payment-voucher",
 };
 
 // --- General Accounting ---
@@ -230,6 +244,8 @@ export const approvalNode: NodeDefinition = {
   ],
   defaultConfig: { approver: "", threshold: 1000 },
   color: "bg-teal-600",
+  flowType: "decision",
+  documentType: "approval",
 };
 
 export const reportNode: NodeDefinition = {
@@ -265,6 +281,8 @@ export const reportNode: NodeDefinition = {
   ],
   defaultConfig: { reportType: "cashflow", format: "pdf" },
   color: "bg-rose-600",
+  flowType: "output",
+  documentType: "report",
 };
 
 export const debitNoteNode: NodeDefinition = {
@@ -291,6 +309,8 @@ export const debitNoteNode: NodeDefinition = {
   ],
   defaultConfig: { reason: "", amount: 0 },
   color: "bg-red-600",
+  flowType: "process",
+  documentType: "debit-note",
 };
 
 export const creditNoteNode: NodeDefinition = {
@@ -317,6 +337,8 @@ export const creditNoteNode: NodeDefinition = {
   ],
   defaultConfig: { reason: "", amount: 0 },
   color: "bg-pink-600",
+  flowType: "process",
+  documentType: "credit-note",
 };
 
 export const accountingNodes: NodeDefinition[] = [

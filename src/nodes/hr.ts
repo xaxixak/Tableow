@@ -33,6 +33,8 @@ export const leaveRequestNode: NodeDefinition = {
   ],
   defaultConfig: { leaveType: "annual", days: 1 },
   color: "bg-green-600",
+  flowType: "decision",
+  documentType: "leave-request",
 };
 
 export const expenseClaimNode: NodeDefinition = {
@@ -65,6 +67,8 @@ export const expenseClaimNode: NodeDefinition = {
   ],
   defaultConfig: { category: "travel", amount: 0 },
   color: "bg-amber-600",
+  flowType: "start",
+  documentType: "expense-claim",
 };
 
 export const timesheetNode: NodeDefinition = {
@@ -96,6 +100,8 @@ export const timesheetNode: NodeDefinition = {
   ],
   defaultConfig: { period: "weekly", hours: 0 },
   color: "bg-sky-600",
+  flowType: "start",
+  documentType: "timesheet",
 };
 
 export const travelRequestNode: NodeDefinition = {
@@ -131,6 +137,8 @@ export const travelRequestNode: NodeDefinition = {
   ],
   defaultConfig: { destination: "", purpose: "", estimatedCost: 0 },
   color: "bg-indigo-600",
+  flowType: "decision",
+  documentType: "travel-request",
 };
 
 export const overtimeRequestNode: NodeDefinition = {
@@ -160,6 +168,8 @@ export const overtimeRequestNode: NodeDefinition = {
   ],
   defaultConfig: { hours: 0, reason: "" },
   color: "bg-violet-600",
+  flowType: "decision",
+  documentType: "overtime-request",
 };
 
 export const hrNodes: NodeDefinition[] = [

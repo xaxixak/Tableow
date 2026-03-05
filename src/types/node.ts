@@ -56,6 +56,11 @@ export interface CategoryDefinition {
 }
 
 /**
+ * Workflow/control flow types for visual rendering and flow logic.
+ */
+export type FlowType = 'start' | 'process' | 'decision' | 'output' | 'end' | 'subprocess'
+
+/**
  * A NodeDefinition is the blueprint/template for a type of node.
  * Registered in the NodeRegistry, used to instantiate WorkflowNodes.
  */
@@ -77,6 +82,12 @@ export interface NodeDefinition {
   isGroup?: boolean
   /** Custom React component for rendering this node (optional - falls back to default) */
   component?: ComponentType<{ id: string }>
+
+  // -- Workflow Type Classification --
+  /** Workflow/control flow type - determines node shape and behavior */
+  flowType: FlowType
+  /** Optional freeform document/entity type for user classification (e.g., "invoice", "video-render") */
+  documentType?: string
 
   // -- Cloning & Customization Fields --
   /** Original built-in node type this was cloned from (if applicable) */

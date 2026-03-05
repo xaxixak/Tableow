@@ -24,6 +24,8 @@ export const stockTransferNode: NodeDefinition = {
   ],
   defaultConfig: { fromWarehouse: "", toWarehouse: "" },
   color: "bg-violet-600",
+  flowType: "process",
+  documentType: "stock-transfer",
 };
 
 export const stockAdjustmentNode: NodeDefinition = {
@@ -55,6 +57,8 @@ export const stockAdjustmentNode: NodeDefinition = {
   ],
   defaultConfig: { adjustmentType: "increase", reason: "" },
   color: "bg-fuchsia-600",
+  flowType: "process",
+  documentType: "stock-adjustment",
 };
 
 export const goodsIssueNode: NodeDefinition = {
@@ -86,6 +90,8 @@ export const goodsIssueNode: NodeDefinition = {
   ],
   defaultConfig: { warehouse: "", purpose: "sales" },
   color: "bg-rose-600",
+  flowType: "process",
+  documentType: "goods-issue",
 };
 
 export const stockCountNode: NodeDefinition = {
@@ -117,6 +123,8 @@ export const stockCountNode: NodeDefinition = {
   ],
   defaultConfig: { warehouse: "", countType: "full" },
   color: "bg-purple-600",
+  flowType: "start",
+  documentType: "stock-count",
 };
 
 export const inventoryNodes: NodeDefinition[] = [

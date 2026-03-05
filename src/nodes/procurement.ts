@@ -35,6 +35,8 @@ export const purchaseOrderNode: NodeDefinition = {
   ],
   defaultConfig: { vendor: "", currency: "THB", amount: 0 },
   color: "bg-blue-700",
+  flowType: "process",
+  documentType: "purchase-order",
 };
 
 export const goodsReceiptNoteNode: NodeDefinition = {
@@ -61,6 +63,8 @@ export const goodsReceiptNoteNode: NodeDefinition = {
   ],
   defaultConfig: { warehouse: "", inspected: false },
   color: "bg-cyan-600",
+  flowType: "process",
+  documentType: "goods-receipt-note",
 };
 
 export const vendorQuotationNode: NodeDefinition = {
@@ -87,6 +91,8 @@ export const vendorQuotationNode: NodeDefinition = {
   ],
   defaultConfig: { vendor: "", validUntil: "" },
   color: "bg-teal-600",
+  flowType: "process",
+  documentType: "vendor-quotation",
 };
 
 export const requestForQuotationNode: NodeDefinition = {
@@ -113,6 +119,8 @@ export const requestForQuotationNode: NodeDefinition = {
   ],
   defaultConfig: { vendors: "", deadline: "" },
   color: "bg-sky-600",
+  flowType: "process",
+  documentType: "request-for-quotation",
 };
 
 export const goodsReturnNode: NodeDefinition = {
@@ -133,6 +141,8 @@ export const goodsReturnNode: NodeDefinition = {
   ],
   defaultConfig: { reason: "" },
   color: "bg-orange-600",
+  flowType: "process",
+  documentType: "goods-return",
 };
 
 export const procurementNodes: NodeDefinition[] = [

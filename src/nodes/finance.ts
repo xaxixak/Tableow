@@ -30,6 +30,8 @@ export const journalEntryNode: NodeDefinition = {
   ],
   defaultConfig: { entryType: "standard", amount: 0 },
   color: "bg-slate-700",
+  flowType: "process",
+  documentType: "journal-entry",
 };
 
 export const budgetRequestNode: NodeDefinition = {
@@ -70,6 +72,8 @@ export const budgetRequestNode: NodeDefinition = {
   ],
   defaultConfig: { department: "", amount: 0, period: "monthly" },
   color: "bg-green-700",
+  flowType: "decision",
+  documentType: "budget-request",
 };
 
 export const bankReconciliationNode: NodeDefinition = {
@@ -96,6 +100,8 @@ export const bankReconciliationNode: NodeDefinition = {
   ],
   defaultConfig: { bankAccount: "", period: "" },
   color: "bg-blue-800",
+  flowType: "process",
+  documentType: "bank-reconciliation",
 };
 
 export const taxFilingNode: NodeDefinition = {
@@ -128,6 +134,8 @@ export const taxFilingNode: NodeDefinition = {
   ],
   defaultConfig: { taxType: "vat", period: "" },
   color: "bg-red-700",
+  flowType: "process",
+  documentType: "tax-filing",
 };
 
 export const assetRegisterNode: NodeDefinition = {
@@ -160,6 +168,8 @@ export const assetRegisterNode: NodeDefinition = {
   ],
   defaultConfig: { action: "register", value: 0 },
   color: "bg-zinc-700",
+  flowType: "process",
+  documentType: "asset-register",
 };
 
 export const financeNodes: NodeDefinition[] = [

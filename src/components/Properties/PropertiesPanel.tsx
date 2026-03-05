@@ -109,6 +109,8 @@ export default function PropertiesPanel() {
   const [editLabel, setEditLabel] = useState("");
   const [editDescription, setEditDescription] = useState("");
   const [editCategory, setEditCategory] = useState("");
+  const [editFlowType, setEditFlowType] = useState<"start" | "process" | "decision" | "output" | "end" | "subprocess">("process");
+  const [editDocumentType, setEditDocumentType] = useState("");
   const [configEditorOpen, setConfigEditorOpen] = useState(false);
   const [editingConfigField, setEditingConfigField] = useState<ConfigFieldDefinition | null>(null);
 
@@ -151,6 +153,8 @@ export default function PropertiesPanel() {
       setEditLabel(definition.label);
       setEditDescription(definition.description ?? "");
       setEditCategory(definition.category);
+      setEditFlowType(definition.flowType);
+      setEditDocumentType(definition.documentType ?? "");
     }
     setEditMode(!editMode);
   }, [editMode, definition]);
@@ -162,10 +166,12 @@ export default function PropertiesPanel() {
       label: editLabel,
       description: editDescription,
       category: editCategory,
+      flowType: editFlowType,
+      documentType: editDocumentType || undefined,
     });
 
     setEditMode(false);
-  }, [selectedNode, definition, editLabel, editDescription, editCategory, updateCustomNodeDefinition]);
+  }, [selectedNode, definition, editLabel, editDescription, editCategory, editFlowType, editDocumentType, updateCustomNodeDefinition]);
 
   const handleCancelEdit = useCallback(() => {
     setEditMode(false);
@@ -381,8 +387,45 @@ export default function PropertiesPanel() {
                     </span>
                   </div>
                 )}
-                {definition.sourceTemplateType && (
+                <div>
+                  <span className="text-slate-400 dark:text-slate-500">Flow Type: </span>
+                  <span className="text-slate-700 dark:text-slate-300 capitalize">
+                    {definition.flowType}
+                  </span>
+                </div>
+                {definition.documentType && (
                   <div>
+                    <span className="text-slate-400 dark:text-slate-500">Document: </span>
+                    <span className="text-slate-700 dark:text-slate-300">
+                      {definition.documentType}
+                    </span>
+                  </div>
+                )}
+                {(selectedNode.data.laneId || selectedNode.data.stageId) && (
+                  <div className="pt-2 border-t border-slate-200 dark:border-zinc-700">
+                    <div className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">
+                      Grid Position
+                    </div>
+                    {selectedNode.data.laneId && (
+                      <div>
+                        <span className="text-slate-400 dark:text-slate-500">Lane: </span>
+                        <span className="text-slate-700 dark:text-slate-300">
+                          {selectedNode.data.laneId}
+                        </span>
+                      </div>
+                    )}
+                    {selectedNode.data.stageId && (
+                      <div>
+                        <span className="text-slate-400 dark:text-slate-500">Stage: </span>
+                        <span className="text-slate-700 dark:text-slate-300">
+                          {selectedNode.data.stageId}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
+                {definition.sourceTemplateType && (
+                  <div className="pt-2 border-t border-slate-200 dark:border-zinc-700">
                     <span className="text-slate-400 dark:text-slate-500">Based on: </span>
                     <span className="text-slate-700 dark:text-slate-300">
                       {definition.sourceTemplateType}
@@ -442,6 +485,41 @@ export default function PropertiesPanel() {
                       </option>
                     ))}
                   </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1">
+                    Flow Type
+                  </label>
+                  <select
+                    value={editFlowType}
+                    onChange={(e) => setEditFlowType(e.target.value as any)}
+                    className="w-full px-2.5 py-1.5 text-sm rounded-md border border-slate-200 bg-white dark:bg-zinc-800 dark:border-zinc-600 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400"
+                  >
+                    <option value="start">Start</option>
+                    <option value="process">Process</option>
+                    <option value="decision">Decision</option>
+                    <option value="output">Output</option>
+                    <option value="end">End</option>
+                    <option value="subprocess">Subprocess</option>
+                  </select>
+                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                    Determines node shape and workflow behavior
+                  </p>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1">
+                    Document Type (optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={editDocumentType}
+                    onChange={(e) => setEditDocumentType(e.target.value)}
+                    placeholder="e.g., invoice, approval, video-render"
+                    className="w-full px-2.5 py-1.5 text-sm rounded-md border border-slate-200 bg-white dark:bg-zinc-800 dark:border-zinc-600 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400"
+                  />
+                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                    Freeform label for classification
+                  </p>
                 </div>
 
                 {/* Port Quantity Management */}

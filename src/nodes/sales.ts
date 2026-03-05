@@ -24,6 +24,8 @@ export const salesOrderNode: NodeDefinition = {
   ],
   defaultConfig: { customer: "", amount: 0 },
   color: "bg-green-600",
+  flowType: "process",
+  documentType: "sales-order",
 };
 
 export const salesQuotationNode: NodeDefinition = {
@@ -50,6 +52,8 @@ export const salesQuotationNode: NodeDefinition = {
   ],
   defaultConfig: { customer: "", validDays: 30 },
   color: "bg-lime-600",
+  flowType: "process",
+  documentType: "quotation",
 };
 
 export const deliveryNoteNode: NodeDefinition = {
@@ -76,6 +80,8 @@ export const deliveryNoteNode: NodeDefinition = {
   ],
   defaultConfig: { address: "", carrier: "" },
   color: "bg-emerald-600",
+  flowType: "process",
+  documentType: "delivery-note",
 };
 
 export const salesReturnNode: NodeDefinition = {
@@ -107,6 +113,8 @@ export const salesReturnNode: NodeDefinition = {
   ],
   defaultConfig: { reason: "", refundMethod: "credit-note" },
   color: "bg-yellow-600",
+  flowType: "process",
+  documentType: "sales-return",
 };
 
 export const salesInvoiceNode: NodeDefinition = {
@@ -133,6 +141,8 @@ export const salesInvoiceNode: NodeDefinition = {
   ],
   defaultConfig: { paymentTerms: "net30" },
   color: "bg-teal-600",
+  flowType: "process",
+  documentType: "sales-invoice",
 };
 
 export const salesNodes: NodeDefinition[] = [
