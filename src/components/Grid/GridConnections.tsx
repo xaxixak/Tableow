@@ -24,6 +24,7 @@ function GridConnections() {
     if (!container) return;
 
     const containerRect = container.getBoundingClientRect();
+
     setDimensions({
       width: container.scrollWidth,
       height: container.scrollHeight,
@@ -37,8 +38,8 @@ function GridConnections() {
 
       const rect = el.getBoundingClientRect();
       newPositions.set(node.id, {
-        x: rect.left - containerRect.left + container.scrollLeft,
-        y: rect.top - containerRect.top + container.scrollTop,
+        x: rect.left - containerRect.left,
+        y: rect.top - containerRect.top,
         width: rect.width,
         height: rect.height,
       });
@@ -68,16 +69,7 @@ function GridConnections() {
     return () => observer.disconnect();
   }, [measurePositions]);
 
-  if (edges.length === 0) {
-    console.log('GridConnections: No edges to render');
-    return null;
-  }
-
-  console.log('GridConnections rendering:', {
-    edgeCount: edges.length,
-    positionsCount: positions.size,
-    dimensions
-  });
+  if (edges.length === 0) return null;
 
   return (
     <svg

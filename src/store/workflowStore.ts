@@ -188,6 +188,21 @@ function pushHistory(state: {
 }
 
 /**
+ * Helper to get the first output/input port name from a node
+ */
+function getDefaultPortNames(node: WorkflowNode | undefined): { output: string; input: string } {
+  if (!node) return { output: 'out', input: 'in' }
+
+  const def = nodeRegistry.get(node.type)
+  if (!def) return { output: 'out', input: 'in' }
+
+  const outputPort = def.outputs?.[0]?.name || 'out'
+  const inputPort = def.inputs?.[0]?.name || 'in'
+
+  return { output: outputPort, input: inputPort }
+}
+
+/**
  * Auto-connect a placed node to adjacent-stage nodes in the same lane.
  * Returns new edges to add (avoids duplicates).
  */
@@ -197,6 +212,7 @@ function autoConnectEdges(
   stageId: string,
   gridConfig: GridConfig,
   existingEdges: WorkflowEdge[],
+  nodes: WorkflowNode[],
 ): WorkflowEdge[] {
   const { stages, placements } = gridConfig
 
@@ -224,6 +240,9 @@ function autoConnectEdges(
   const edgeSet = new Set(existingEdges.map((e) => `${e.source}→${e.target}`))
   const newEdges: WorkflowEdge[] = []
 
+  const currentNode = nodes.find((n) => n.id === nodeId)
+  const currentPorts = getDefaultPortNames(currentNode)
+
   // Connect FROM previous-stage nodes in same lane → this node
   if (prevStage) {
     const prevNodes = placements.filter(
@@ -233,12 +252,14 @@ function autoConnectEdges(
       const key = `${p.nodeId}→${nodeId}`
       if (!edgeSet.has(key)) {
         edgeSet.add(key)
+        const sourceNode = nodes.find((n) => n.id === p.nodeId)
+        const sourcePorts = getDefaultPortNames(sourceNode)
         newEdges.push({
           id: `e-${p.nodeId}-${nodeId}`,
           source: p.nodeId,
           target: nodeId,
-          sourceHandle: 'out',
-          targetHandle: 'in',
+          sourceHandle: sourcePorts.output,
+          targetHandle: currentPorts.input,
         })
       }
     }
@@ -253,12 +274,14 @@ function autoConnectEdges(
       const key = `${nodeId}→${p.nodeId}`
       if (!edgeSet.has(key)) {
         edgeSet.add(key)
+        const targetNode = nodes.find((n) => n.id === p.nodeId)
+        const targetPorts = getDefaultPortNames(targetNode)
         newEdges.push({
           id: `e-${nodeId}-${p.nodeId}`,
           source: nodeId,
           target: p.nodeId,
-          sourceHandle: 'out',
-          targetHandle: 'in',
+          sourceHandle: currentPorts.output,
+          targetHandle: targetPorts.input,
         })
       }
     }
@@ -1065,7 +1088,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     )
 
     // Auto-connect: create edges to/from adjacent-stage nodes in same lane
-    const autoEdges = autoConnectEdges(nodeId, laneId, stageId, newGridConfig, edgesWithoutNode)
+    const autoEdges = autoConnectEdges(nodeId, laneId, stageId, newGridConfig, edgesWithoutNode, newNodes)
     const newEdges = [...edgesWithoutNode, ...autoEdges]
 
     set({

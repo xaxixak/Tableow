@@ -124,7 +124,7 @@ export default function PropertiesPanel() {
     return nodeRegistry.get(selectedNode.type);
   }, [selectedNode?.type, registryVersion]);
 
-  // Get connected nodes
+  // Get connected nodes (deduplicated)
   const connectedNodes = useMemo(() => {
     if (!selectedNodeId) return { inputs: [], outputs: [] };
 
@@ -141,7 +141,11 @@ export default function PropertiesPanel() {
       return targetNode?.data?.label || targetNode?.type || 'Unknown';
     });
 
-    return { inputs: inputNodes, outputs: outputNodes };
+    // Remove duplicates using Set
+    return {
+      inputs: Array.from(new Set(inputNodes)),
+      outputs: Array.from(new Set(outputNodes))
+    };
   }, [selectedNodeId, edges, nodes]);
 
   const config = selectedNode?.data?.config as
