@@ -79,7 +79,7 @@ function GridConnections() {
       className="absolute inset-0 z-10"
       width={dimensions.width || "100%"}
       height={dimensions.height || "100%"}
-      style={{ overflow: "visible" }}
+      style={{ overflow: "visible", pointerEvents: "none" }}
     >
       <defs>
         <marker
