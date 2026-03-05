@@ -126,4 +126,4 @@ function BaseNode({ data, type, selected }: NodeProps) {
   );
 }
 
-export default memo(BaseNode);
+export default BaseNode;
