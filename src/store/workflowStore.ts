@@ -559,18 +559,18 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     const updatedTypes = [...state.customNodeTypes]
     updatedTypes[nodeDefIndex] = updatedDef
 
-    // Sync existing node instances if label changed
-    let newNodes = state.nodes
-    if (updates.label && oldDef.label !== updates.label) {
-      newNodes = state.nodes.map((node) => {
-        if (node.type !== type) return node
-        // Update instance label if it matches old definition label
-        if (node.data.label === oldDef.label) {
-          return { ...node, data: { ...node.data, label: updates.label } }
-        }
-        return node
-      })
-    }
+    // Sync existing node instances
+    let newNodes = state.nodes.map((node) => {
+      if (node.type !== type) return node
+
+      // Update instance label if it matches old definition label
+      if (updates.label && oldDef.label !== updates.label && node.data.label === oldDef.label) {
+        return { ...node, data: { ...node.data, label: updates.label } }
+      }
+
+      // Force re-render by creating new data object (breaks memo equality check)
+      return { ...node, data: { ...node.data } }
+    })
 
     set({
       nodes: newNodes,
