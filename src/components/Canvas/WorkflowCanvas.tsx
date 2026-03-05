@@ -21,8 +21,9 @@ export default function WorkflowCanvas() {
   const onConnect = useWorkflowStore((s) => s.onConnect);
   const addNode = useWorkflowStore((s) => s.addNode);
   const selectNode = useWorkflowStore((s) => s.selectNode);
+  const registryVersion = useWorkflowStore((s) => s.registryVersion);
 
-  const nodeTypes = useMemo(() => buildNodeTypes(), []);
+  const nodeTypes = useMemo(() => buildNodeTypes(), [registryVersion]);
 
   const onDragOver = useCallback((event: DragEvent<HTMLDivElement>) => {
     event.preventDefault();
