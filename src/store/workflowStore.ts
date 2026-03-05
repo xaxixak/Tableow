@@ -105,6 +105,14 @@ export interface WorkflowState {
   removeCustomCategory: (path: string) => void
   renameCustomCategory: (oldPath: string, newPath: string) => void
   cloneNodeDefinition: (sourceType: string, targetCategory?: string) => string | null
+  updateCustomNodeDefinition: (type: string, updates: Partial<Pick<NodeDefinition, 'label' | 'description' | 'icon' | 'category' | 'inputs' | 'outputs' | 'configSchema' | 'defaultConfig'>>) => void
+  moveCustomNodeToCategory: (type: string, newCategory: string) => void
+  addPortToCustomNode: (type: string, portType: 'input' | 'output', port: { name: string; type: string; label: string; multiple?: boolean }) => void
+  removePortFromCustomNode: (type: string, portType: 'input' | 'output', portName: string) => void
+  updatePortOnCustomNode: (type: string, portType: 'input' | 'output', portName: string, updates: { name?: string; type?: string; label?: string; multiple?: boolean }) => void
+  addConfigFieldToCustomNode: (type: string, field: { key: string; label: string; type: string; defaultValue?: unknown; options?: Array<{ label: string; value: string }> }) => void
+  removeConfigFieldFromCustomNode: (type: string, fieldKey: string) => void
+  updateConfigFieldOnCustomNode: (type: string, fieldKey: string, updates: { key?: string; label?: string; type?: string; defaultValue?: unknown; options?: Array<{ label: string; value: string }> }) => void
   addCustomNodeType: (input: {
     label: string
     category: string
@@ -505,6 +513,272 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     })
 
     return type
+  },
+
+  updateCustomNodeDefinition: (type, updates) => {
+    const state = get()
+
+    // Find the custom node definition
+    const nodeDefIndex = state.customNodeTypes.findIndex((d) => d.type === type)
+    if (nodeDefIndex === -1) {
+      console.error(`Cannot update: Node definition "${type}" not found`)
+      return
+    }
+
+    const oldDef = state.customNodeTypes[nodeDefIndex]
+    let updatedDef = { ...oldDef, ...updates }
+
+    // If category changed, re-number the node
+    if (updates.category && updates.category !== oldDef.category) {
+      // Find or create target category
+      let categoryDef = state.customCategories.find((c) => c.path === updates.category)
+      if (!categoryDef) {
+        const number = getNextCategoryNumber(state.customCategories)
+        categoryDef = {
+          path: updates.category,
+          number,
+          order: state.customCategories.length,
+        }
+        state.customCategories.push(categoryDef)
+      }
+
+      // Re-number the node for new category
+      const nodeNumber = getNextNodeNumber(categoryDef.number, state.customNodeTypes)
+      updatedDef = {
+        ...updatedDef,
+        number: nodeNumber,
+        categoryNumber: categoryDef.number,
+      }
+    }
+
+    // Re-register in nodeRegistry
+    nodeRegistry.register(updatedDef)
+
+    // Update in customNodeTypes array
+    const updatedTypes = [...state.customNodeTypes]
+    updatedTypes[nodeDefIndex] = updatedDef
+
+    // Sync existing node instances if label changed
+    let newNodes = state.nodes
+    if (updates.label && oldDef.label !== updates.label) {
+      newNodes = state.nodes.map((node) => {
+        if (node.type !== type) return node
+        // Update instance label if it matches old definition label
+        if (node.data.label === oldDef.label) {
+          return { ...node, data: { ...node.data, label: updates.label } }
+        }
+        return node
+      })
+    }
+
+    set({
+      nodes: newNodes,
+      customCategories: categoryDef ? [...state.customCategories] : state.customCategories,
+      customNodeTypes: updatedTypes,
+      registryVersion: state.registryVersion + 1,
+    })
+  },
+
+  moveCustomNodeToCategory: (type, newCategory) => {
+    get().updateCustomNodeDefinition(type, { category: newCategory })
+  },
+
+  addPortToCustomNode: (type, portType, port) => {
+    const state = get()
+    const nodeDefIndex = state.customNodeTypes.findIndex((d) => d.type === type)
+    if (nodeDefIndex === -1) {
+      console.error(`Cannot add port: Node definition "${type}" not found`)
+      return
+    }
+
+    const oldDef = state.customNodeTypes[nodeDefIndex]
+    const portArray = portType === 'input' ? oldDef.inputs : oldDef.outputs
+
+    // Check for duplicate port names
+    if (portArray.some((p) => p.name === port.name)) {
+      console.error(`Port "${port.name}" already exists on ${portType}s`)
+      return
+    }
+
+    const updatedDef = {
+      ...oldDef,
+      [portType === 'input' ? 'inputs' : 'outputs']: [...portArray, port],
+    }
+
+    nodeRegistry.register(updatedDef)
+
+    const updatedTypes = [...state.customNodeTypes]
+    updatedTypes[nodeDefIndex] = updatedDef
+
+    set({
+      customNodeTypes: updatedTypes,
+      registryVersion: state.registryVersion + 1,
+    })
+  },
+
+  removePortFromCustomNode: (type, portType, portName) => {
+    const state = get()
+    const nodeDefIndex = state.customNodeTypes.findIndex((d) => d.type === type)
+    if (nodeDefIndex === -1) {
+      console.error(`Cannot remove port: Node definition "${type}" not found`)
+      return
+    }
+
+    const oldDef = state.customNodeTypes[nodeDefIndex]
+    const portArray = portType === 'input' ? oldDef.inputs : oldDef.outputs
+
+    const updatedDef = {
+      ...oldDef,
+      [portType === 'input' ? 'inputs' : 'outputs']: portArray.filter((p) => p.name !== portName),
+    }
+
+    nodeRegistry.register(updatedDef)
+
+    const updatedTypes = [...state.customNodeTypes]
+    updatedTypes[nodeDefIndex] = updatedDef
+
+    set({
+      customNodeTypes: updatedTypes,
+      registryVersion: state.registryVersion + 1,
+    })
+  },
+
+  updatePortOnCustomNode: (type, portType, portName, updates) => {
+    const state = get()
+    const nodeDefIndex = state.customNodeTypes.findIndex((d) => d.type === type)
+    if (nodeDefIndex === -1) {
+      console.error(`Cannot update port: Node definition "${type}" not found`)
+      return
+    }
+
+    const oldDef = state.customNodeTypes[nodeDefIndex]
+    const portArray = portType === 'input' ? oldDef.inputs : oldDef.outputs
+
+    // Check if renaming would create a duplicate
+    if (updates.name && updates.name !== portName) {
+      if (portArray.some((p) => p.name === updates.name)) {
+        console.error(`Port "${updates.name}" already exists on ${portType}s`)
+        return
+      }
+    }
+
+    const updatedPorts = portArray.map((p) =>
+      p.name === portName ? { ...p, ...updates } : p
+    )
+
+    const updatedDef = {
+      ...oldDef,
+      [portType === 'input' ? 'inputs' : 'outputs']: updatedPorts,
+    }
+
+    nodeRegistry.register(updatedDef)
+
+    const updatedTypes = [...state.customNodeTypes]
+    updatedTypes[nodeDefIndex] = updatedDef
+
+    set({
+      customNodeTypes: updatedTypes,
+      registryVersion: state.registryVersion + 1,
+    })
+  },
+
+  addConfigFieldToCustomNode: (type, field) => {
+    const state = get()
+    const nodeDefIndex = state.customNodeTypes.findIndex((d) => d.type === type)
+    if (nodeDefIndex === -1) {
+      console.error(`Cannot add config field: Node definition "${type}" not found`)
+      return
+    }
+
+    const oldDef = state.customNodeTypes[nodeDefIndex]
+    const configSchema = oldDef.configSchema ?? []
+
+    // Check for duplicate field keys
+    if (configSchema.some((f) => f.key === field.key)) {
+      console.error(`Config field "${field.key}" already exists`)
+      return
+    }
+
+    const updatedDef = {
+      ...oldDef,
+      configSchema: [...configSchema, field],
+    }
+
+    nodeRegistry.register(updatedDef)
+
+    const updatedTypes = [...state.customNodeTypes]
+    updatedTypes[nodeDefIndex] = updatedDef
+
+    set({
+      customNodeTypes: updatedTypes,
+      registryVersion: state.registryVersion + 1,
+    })
+  },
+
+  removeConfigFieldFromCustomNode: (type, fieldKey) => {
+    const state = get()
+    const nodeDefIndex = state.customNodeTypes.findIndex((d) => d.type === type)
+    if (nodeDefIndex === -1) {
+      console.error(`Cannot remove config field: Node definition "${type}" not found`)
+      return
+    }
+
+    const oldDef = state.customNodeTypes[nodeDefIndex]
+    const configSchema = oldDef.configSchema ?? []
+
+    const updatedDef = {
+      ...oldDef,
+      configSchema: configSchema.filter((f) => f.key !== fieldKey),
+    }
+
+    nodeRegistry.register(updatedDef)
+
+    const updatedTypes = [...state.customNodeTypes]
+    updatedTypes[nodeDefIndex] = updatedDef
+
+    set({
+      customNodeTypes: updatedTypes,
+      registryVersion: state.registryVersion + 1,
+    })
+  },
+
+  updateConfigFieldOnCustomNode: (type, fieldKey, updates) => {
+    const state = get()
+    const nodeDefIndex = state.customNodeTypes.findIndex((d) => d.type === type)
+    if (nodeDefIndex === -1) {
+      console.error(`Cannot update config field: Node definition "${type}" not found`)
+      return
+    }
+
+    const oldDef = state.customNodeTypes[nodeDefIndex]
+    const configSchema = oldDef.configSchema ?? []
+
+    // Check if renaming would create a duplicate
+    if (updates.key && updates.key !== fieldKey) {
+      if (configSchema.some((f) => f.key === updates.key)) {
+        console.error(`Config field "${updates.key}" already exists`)
+        return
+      }
+    }
+
+    const updatedFields = configSchema.map((f) =>
+      f.key === fieldKey ? { ...f, ...updates } : f
+    )
+
+    const updatedDef = {
+      ...oldDef,
+      configSchema: updatedFields,
+    }
+
+    nodeRegistry.register(updatedDef)
+
+    const updatedTypes = [...state.customNodeTypes]
+    updatedTypes[nodeDefIndex] = updatedDef
+
+    set({
+      customNodeTypes: updatedTypes,
+      registryVersion: state.registryVersion + 1,
+    })
   },
 
   addCustomNodeType: (input) => {

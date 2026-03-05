@@ -1,9 +1,11 @@
-import { useMemo, useCallback } from "react";
-import { Trash2, X, ChevronRight, Settings2 } from "lucide-react";
+import { useMemo, useCallback, useState } from "react";
+import { Trash2, X, ChevronRight, Settings2, Plus, Edit, Trash } from "lucide-react";
 import { useWorkflowStore } from "../../store/workflowStore.ts";
 import { nodeRegistry } from "../../registry/index.ts";
-import type { ConfigFieldDefinition } from "../../types/index.ts";
+import type { ConfigFieldDefinition, PortDefinition } from "../../types/index.ts";
 import { cn } from "../../lib/utils.ts";
+import { PortEditorModal } from "./PortEditorModal";
+import { ConfigFieldEditorModal } from "./ConfigFieldEditorModal";
 
 function ConfigFieldDefinitionInput({
   field,
@@ -94,6 +96,23 @@ export default function PropertiesPanel() {
   const selectNode = useWorkflowStore((s) => s.selectNode);
   const collapsed = useWorkflowStore((s) => s.propertiesCollapsed);
   const toggleProperties = useWorkflowStore((s) => s.toggleProperties);
+  const customCategories = useWorkflowStore((s) => s.customCategories);
+  const updateCustomNodeDefinition = useWorkflowStore((s) => s.updateCustomNodeDefinition);
+  const addPortToCustomNode = useWorkflowStore((s) => s.addPortToCustomNode);
+  const removePortFromCustomNode = useWorkflowStore((s) => s.removePortFromCustomNode);
+  const updatePortOnCustomNode = useWorkflowStore((s) => s.updatePortOnCustomNode);
+  const addConfigFieldToCustomNode = useWorkflowStore((s) => s.addConfigFieldToCustomNode);
+  const removeConfigFieldFromCustomNode = useWorkflowStore((s) => s.removeConfigFieldFromCustomNode);
+  const updateConfigFieldOnCustomNode = useWorkflowStore((s) => s.updateConfigFieldOnCustomNode);
+
+  const [editMode, setEditMode] = useState(false);
+  const [editLabel, setEditLabel] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [editCategory, setEditCategory] = useState("");
+  const [portEditorOpen, setPortEditorOpen] = useState(false);
+  const [editingPort, setEditingPort] = useState<{ portType: 'input' | 'output'; port?: PortDefinition } | null>(null);
+  const [configEditorOpen, setConfigEditorOpen] = useState(false);
+  const [editingConfigField, setEditingConfigField] = useState<ConfigFieldDefinition | null>(null);
 
   const selectedNode = useMemo(
     () => nodes.find((n) => n.id === selectedNodeId),
@@ -127,6 +146,115 @@ export default function PropertiesPanel() {
   const handleClose = useCallback(() => {
     selectNode(null);
   }, [selectNode]);
+
+  const handleEditToggle = useCallback(() => {
+    if (!editMode && definition) {
+      // Entering edit mode - populate form
+      setEditLabel(definition.label);
+      setEditDescription(definition.description ?? "");
+      setEditCategory(definition.category);
+    }
+    setEditMode(!editMode);
+  }, [editMode, definition]);
+
+  const handleSaveDefinition = useCallback(() => {
+    if (!selectedNode?.type || !definition) return;
+
+    updateCustomNodeDefinition(selectedNode.type, {
+      label: editLabel,
+      description: editDescription,
+      category: editCategory,
+    });
+
+    setEditMode(false);
+  }, [selectedNode, definition, editLabel, editDescription, editCategory, updateCustomNodeDefinition]);
+
+  const handleCancelEdit = useCallback(() => {
+    setEditMode(false);
+  }, []);
+
+  const handleAddPort = useCallback((portType: 'input' | 'output') => {
+    setEditingPort({ portType });
+    setPortEditorOpen(true);
+  }, []);
+
+  const handleEditPort = useCallback((portType: 'input' | 'output', port: PortDefinition) => {
+    setEditingPort({ portType, port });
+    setPortEditorOpen(true);
+  }, []);
+
+  const handleDeletePort = useCallback((portType: 'input' | 'output', portName: string) => {
+    if (!selectedNode?.type) return;
+    if (window.confirm(`Delete ${portType} port "${portName}"?`)) {
+      removePortFromCustomNode(selectedNode.type, portType, portName);
+    }
+  }, [selectedNode, removePortFromCustomNode]);
+
+  const handleSavePort = useCallback((port: { name: string; type: string; label: string; multiple?: boolean }) => {
+    if (!selectedNode?.type || !editingPort) return;
+
+    if (editingPort.port) {
+      // Updating existing port
+      updatePortOnCustomNode(selectedNode.type, editingPort.portType, editingPort.port.name, port);
+    } else {
+      // Adding new port
+      addPortToCustomNode(selectedNode.type, editingPort.portType, port);
+    }
+
+    setPortEditorOpen(false);
+    setEditingPort(null);
+  }, [selectedNode, editingPort, addPortToCustomNode, updatePortOnCustomNode]);
+
+  const handleClosePortEditor = useCallback(() => {
+    setPortEditorOpen(false);
+    setEditingPort(null);
+  }, []);
+
+  const handleAddConfigField = useCallback(() => {
+    setEditingConfigField(null);
+    setConfigEditorOpen(true);
+  }, []);
+
+  const handleEditConfigField = useCallback((field: ConfigFieldDefinition) => {
+    setEditingConfigField(field);
+    setConfigEditorOpen(true);
+  }, []);
+
+  const handleDeleteConfigField = useCallback((fieldKey: string) => {
+    if (!selectedNode?.type) return;
+    if (window.confirm(`Delete config field "${fieldKey}"?`)) {
+      removeConfigFieldFromCustomNode(selectedNode.type, fieldKey);
+    }
+  }, [selectedNode, removeConfigFieldFromCustomNode]);
+
+  const handleSaveConfigField = useCallback(
+    (field: {
+      key: string;
+      label: string;
+      type: string;
+      defaultValue?: unknown;
+      options?: Array<{ label: string; value: string }>;
+    }) => {
+      if (!selectedNode?.type) return;
+
+      if (editingConfigField) {
+        // Updating existing field
+        updateConfigFieldOnCustomNode(selectedNode.type, editingConfigField.key, field);
+      } else {
+        // Adding new field
+        addConfigFieldToCustomNode(selectedNode.type, field);
+      }
+
+      setConfigEditorOpen(false);
+      setEditingConfigField(null);
+    },
+    [selectedNode, editingConfigField, addConfigFieldToCustomNode, updateConfigFieldOnCustomNode]
+  );
+
+  const handleCloseConfigEditor = useCallback(() => {
+    setConfigEditorOpen(false);
+    setEditingConfigField(null);
+  }, []);
 
   // Collapsed state
   if (collapsed) {
@@ -266,6 +394,256 @@ export default function PropertiesPanel() {
             </div>
           </div>
         )}
+
+        {/* Edit Definition (for custom nodes) */}
+        {definition.customizable && (
+          <div className="px-4 py-3 border-t border-slate-200 dark:border-zinc-700">
+            <div className="flex items-center justify-between mb-3">
+              <div className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                Node Definition
+              </div>
+              <button
+                onClick={handleEditToggle}
+                className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
+              >
+                {editMode ? "Cancel" : "Edit"}
+              </button>
+            </div>
+
+            {!editMode ? (
+              <div className="space-y-2 text-sm">
+                {definition.number && (
+                  <div>
+                    <span className="text-slate-400 dark:text-slate-500">Number: </span>
+                    <span className="text-slate-700 dark:text-slate-300 font-mono">
+                      {definition.number}
+                    </span>
+                  </div>
+                )}
+                {definition.sourceTemplateType && (
+                  <div>
+                    <span className="text-slate-400 dark:text-slate-500">Based on: </span>
+                    <span className="text-slate-700 dark:text-slate-300">
+                      {definition.sourceTemplateType}
+                    </span>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {definition.number && (
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1">
+                      Number (read-only)
+                    </label>
+                    <input
+                      type="text"
+                      value={definition.number}
+                      disabled
+                      className="w-full px-2.5 py-1.5 text-sm rounded-md border border-slate-200 bg-slate-50 dark:bg-zinc-800/50 dark:border-zinc-600 dark:text-slate-400 font-mono"
+                    />
+                  </div>
+                )}
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1">
+                    Label
+                  </label>
+                  <input
+                    type="text"
+                    value={editLabel}
+                    onChange={(e) => setEditLabel(e.target.value)}
+                    className="w-full px-2.5 py-1.5 text-sm rounded-md border border-slate-200 bg-white dark:bg-zinc-800 dark:border-zinc-600 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1">
+                    Description
+                  </label>
+                  <textarea
+                    value={editDescription}
+                    onChange={(e) => setEditDescription(e.target.value)}
+                    rows={3}
+                    className="w-full px-2.5 py-1.5 text-sm rounded-md border border-slate-200 bg-white dark:bg-zinc-800 dark:border-zinc-600 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 resize-y"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1">
+                    Category
+                  </label>
+                  <select
+                    value={editCategory}
+                    onChange={(e) => setEditCategory(e.target.value)}
+                    className="w-full px-2.5 py-1.5 text-sm rounded-md border border-slate-200 bg-white dark:bg-zinc-800 dark:border-zinc-600 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400"
+                  >
+                    {customCategories.map((cat) => (
+                      <option key={cat.path} value={cat.path}>
+                        {cat.number}: {cat.path}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Port Management */}
+                <div className="border-t border-slate-200 dark:border-zinc-700 pt-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-xs font-medium text-slate-600 dark:text-slate-300">
+                      Input Ports
+                    </label>
+                    <button
+                      onClick={() => handleAddPort('input')}
+                      className="p-1 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors"
+                      title="Add input port"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                  <div className="space-y-1">
+                    {definition.inputs.length === 0 ? (
+                      <p className="text-xs text-slate-400 italic">No input ports</p>
+                    ) : (
+                      definition.inputs.map((port) => (
+                        <div
+                          key={port.name}
+                          className="flex items-center justify-between px-2 py-1.5 bg-slate-50 dark:bg-zinc-800 rounded text-xs"
+                        >
+                          <span className="text-slate-700 dark:text-slate-300">
+                            {port.label} <span className="text-slate-400">({port.name})</span>
+                          </span>
+                          <div className="flex gap-1">
+                            <button
+                              onClick={() => handleEditPort('input', port)}
+                              className="p-0.5 text-slate-500 hover:text-blue-600 dark:hover:text-blue-400"
+                              title="Edit port"
+                            >
+                              <Edit className="w-3 h-3" />
+                            </button>
+                            <button
+                              onClick={() => handleDeletePort('input', port.name)}
+                              className="p-0.5 text-slate-500 hover:text-red-600 dark:hover:text-red-400"
+                              title="Delete port"
+                            >
+                              <Trash className="w-3 h-3" />
+                            </button>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+
+                <div className="border-t border-slate-200 dark:border-zinc-700 pt-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-xs font-medium text-slate-600 dark:text-slate-300">
+                      Output Ports
+                    </label>
+                    <button
+                      onClick={() => handleAddPort('output')}
+                      className="p-1 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors"
+                      title="Add output port"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                  <div className="space-y-1">
+                    {definition.outputs.length === 0 ? (
+                      <p className="text-xs text-slate-400 italic">No output ports</p>
+                    ) : (
+                      definition.outputs.map((port) => (
+                        <div
+                          key={port.name}
+                          className="flex items-center justify-between px-2 py-1.5 bg-slate-50 dark:bg-zinc-800 rounded text-xs"
+                        >
+                          <span className="text-slate-700 dark:text-slate-300">
+                            {port.label} <span className="text-slate-400">({port.name})</span>
+                          </span>
+                          <div className="flex gap-1">
+                            <button
+                              onClick={() => handleEditPort('output', port)}
+                              className="p-0.5 text-slate-500 hover:text-blue-600 dark:hover:text-blue-400"
+                              title="Edit port"
+                            >
+                              <Edit className="w-3 h-3" />
+                            </button>
+                            <button
+                              onClick={() => handleDeletePort('output', port.name)}
+                              className="p-0.5 text-slate-500 hover:text-red-600 dark:hover:text-red-400"
+                              title="Delete port"
+                            >
+                              <Trash className="w-3 h-3" />
+                            </button>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+
+                {/* Config Field Management */}
+                <div className="border-t border-slate-200 dark:border-zinc-700 pt-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-xs font-medium text-slate-600 dark:text-slate-300">
+                      Config Fields
+                    </label>
+                    <button
+                      onClick={handleAddConfigField}
+                      className="p-1 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors"
+                      title="Add config field"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                  <div className="space-y-1">
+                    {!definition.configSchema || definition.configSchema.length === 0 ? (
+                      <p className="text-xs text-slate-400 italic">No config fields</p>
+                    ) : (
+                      definition.configSchema.map((field) => (
+                        <div
+                          key={field.key}
+                          className="flex items-center justify-between px-2 py-1.5 bg-slate-50 dark:bg-zinc-800 rounded text-xs"
+                        >
+                          <span className="text-slate-700 dark:text-slate-300">
+                            {field.label} <span className="text-slate-400">({field.type})</span>
+                          </span>
+                          <div className="flex gap-1">
+                            <button
+                              onClick={() => handleEditConfigField(field)}
+                              className="p-0.5 text-slate-500 hover:text-blue-600 dark:hover:text-blue-400"
+                              title="Edit field"
+                            >
+                              <Edit className="w-3 h-3" />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteConfigField(field.key)}
+                              className="p-0.5 text-slate-500 hover:text-red-600 dark:hover:text-red-400"
+                              title="Delete field"
+                            >
+                              <Trash className="w-3 h-3" />
+                            </button>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex gap-2 pt-2">
+                  <button
+                    onClick={handleSaveDefinition}
+                    className="flex-1 px-3 py-1.5 text-sm rounded-md bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+                  >
+                    Save Changes
+                  </button>
+                  <button
+                    onClick={handleCancelEdit}
+                    className="px-3 py-1.5 text-sm rounded-md border border-slate-200 dark:border-zinc-600 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-zinc-800 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Footer - delete button */}
@@ -282,6 +660,33 @@ export default function PropertiesPanel() {
           Delete Node
         </button>
       </div>
+
+      {/* Port Editor Modal */}
+      {definition?.customizable && editingPort && (
+        <PortEditorModal
+          isOpen={portEditorOpen}
+          onClose={handleClosePortEditor}
+          onSave={handleSavePort}
+          initialPort={editingPort.port}
+          portType={editingPort.portType}
+          existingPortNames={
+            editingPort.portType === 'input'
+              ? definition.inputs.map((p) => p.name)
+              : definition.outputs.map((p) => p.name)
+          }
+        />
+      )}
+
+      {/* Config Field Editor Modal */}
+      {definition?.customizable && (
+        <ConfigFieldEditorModal
+          isOpen={configEditorOpen}
+          onClose={handleCloseConfigEditor}
+          onSave={handleSaveConfigField}
+          initialField={editingConfigField ?? undefined}
+          existingFieldKeys={definition.configSchema?.map((f) => f.key) ?? []}
+        />
+      )}
     </aside>
   );
 }

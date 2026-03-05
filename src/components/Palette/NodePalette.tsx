@@ -149,12 +149,29 @@ function NodePaletteItem({
         </span>
       )}
       <div className="min-w-0 flex-1">
-        <div className="text-sm font-medium text-slate-800 dark:text-slate-100 truncate">
-          {definition.label}
+        <div className="flex items-center gap-1.5">
+          <div className="text-sm font-medium text-slate-800 dark:text-slate-100 truncate">
+            {definition.number && (
+              <span className="font-mono text-xs text-slate-500 dark:text-slate-400 mr-1.5">
+                {definition.number}:
+              </span>
+            )}
+            {definition.label}
+          </div>
+          {!isCustom && (
+            <span className="px-1.5 py-0.5 text-[10px] font-medium rounded bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 shrink-0">
+              Template
+            </span>
+          )}
         </div>
         {definition.description && (
           <div className="text-xs text-slate-500 dark:text-slate-400 leading-snug mt-0.5">
             {definition.description}
+          </div>
+        )}
+        {isCustom && definition.sourceTemplateType && (
+          <div className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">
+            Based on: {definition.sourceTemplateType}
           </div>
         )}
       </div>
@@ -380,6 +397,11 @@ function CategorySection({
   const removeCustomCategory = useWorkflowStore((s) => s.removeCustomCategory);
   const renameCustomCategory = useWorkflowStore((s) => s.renameCustomCategory);
   const addCustomCategory = useWorkflowStore((s) => s.addCustomCategory);
+  const customCategories = useWorkflowStore((s) => s.customCategories);
+
+  // Find category number for this category
+  const categoryDef = customCategories.find((c) => c.path === node.fullPath);
+  const categoryNumber = categoryDef?.number;
 
   const hasChildren = node.children.size > 0;
   const hasDefinitions = node.definitions.length > 0;
@@ -466,7 +488,14 @@ function CategorySection({
           ) : (
             <ChevronRight className="w-3.5 h-3.5 shrink-0" />
           )}
-          <span>{node.name}</span>
+          <span>
+            {categoryNumber && (
+              <span className="font-mono text-xs text-slate-500 dark:text-slate-400 mr-1.5">
+                {categoryNumber}:
+              </span>
+            )}
+            {node.name}
+          </span>
           <span className="ml-auto text-slate-400 font-normal normal-case mr-2">
             {hasDefinitions && node.definitions.length}
           </span>
