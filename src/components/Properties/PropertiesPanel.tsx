@@ -2,9 +2,8 @@ import { useMemo, useCallback, useState } from "react";
 import { Trash2, X, ChevronRight, Settings2, Plus, Edit, Trash } from "lucide-react";
 import { useWorkflowStore } from "../../store/workflowStore.ts";
 import { nodeRegistry } from "../../registry/index.ts";
-import type { ConfigFieldDefinition, PortDefinition } from "../../types/index.ts";
+import type { ConfigFieldDefinition } from "../../types/index.ts";
 import { cn } from "../../lib/utils.ts";
-import { PortEditorModal } from "./PortEditorModal";
 import { ConfigFieldEditorModal } from "./ConfigFieldEditorModal";
 
 function ConfigFieldDefinitionInput({
@@ -109,8 +108,6 @@ export default function PropertiesPanel() {
   const [editLabel, setEditLabel] = useState("");
   const [editDescription, setEditDescription] = useState("");
   const [editCategory, setEditCategory] = useState("");
-  const [portEditorOpen, setPortEditorOpen] = useState(false);
-  const [editingPort, setEditingPort] = useState<{ portType: 'input' | 'output'; port?: PortDefinition } | null>(null);
   const [configEditorOpen, setConfigEditorOpen] = useState(false);
   const [editingConfigField, setEditingConfigField] = useState<ConfigFieldDefinition | null>(null);
 
@@ -171,43 +168,6 @@ export default function PropertiesPanel() {
 
   const handleCancelEdit = useCallback(() => {
     setEditMode(false);
-  }, []);
-
-  const handleAddPort = useCallback((portType: 'input' | 'output') => {
-    setEditingPort({ portType });
-    setPortEditorOpen(true);
-  }, []);
-
-  const handleEditPort = useCallback((portType: 'input' | 'output', port: PortDefinition) => {
-    setEditingPort({ portType, port });
-    setPortEditorOpen(true);
-  }, []);
-
-  const handleDeletePort = useCallback((portType: 'input' | 'output', portName: string) => {
-    if (!selectedNode?.type) return;
-    if (window.confirm(`Delete ${portType} port "${portName}"?`)) {
-      removePortFromCustomNode(selectedNode.type, portType, portName);
-    }
-  }, [selectedNode, removePortFromCustomNode]);
-
-  const handleSavePort = useCallback((port: { name: string; type: string; label: string; multiple?: boolean }) => {
-    if (!selectedNode?.type || !editingPort) return;
-
-    if (editingPort.port) {
-      // Updating existing port
-      updatePortOnCustomNode(selectedNode.type, editingPort.portType, editingPort.port.name, port);
-    } else {
-      // Adding new port
-      addPortToCustomNode(selectedNode.type, editingPort.portType, port);
-    }
-
-    setPortEditorOpen(false);
-    setEditingPort(null);
-  }, [selectedNode, editingPort, addPortToCustomNode, updatePortOnCustomNode]);
-
-  const handleClosePortEditor = useCallback(() => {
-    setPortEditorOpen(false);
-    setEditingPort(null);
   }, []);
 
   const handleAddConfigField = useCallback(() => {
@@ -483,97 +443,99 @@ export default function PropertiesPanel() {
                   </select>
                 </div>
 
-                {/* Port Management */}
+                {/* Port Quantity Management */}
                 <div className="border-t border-slate-200 dark:border-zinc-700 pt-3">
-                  <div className="flex items-center justify-between mb-2">
-                    <label className="text-xs font-medium text-slate-600 dark:text-slate-300">
-                      Input Ports
-                    </label>
-                    <button
-                      onClick={() => handleAddPort('input')}
-                      className="p-1 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors"
-                      title="Add input port"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                  <div className="space-y-1">
-                    {definition.inputs.length === 0 ? (
-                      <p className="text-xs text-slate-400 italic">No input ports</p>
-                    ) : (
-                      definition.inputs.map((port) => (
-                        <div
-                          key={port.name}
-                          className="flex items-center justify-between px-2 py-1.5 bg-slate-50 dark:bg-zinc-800 rounded text-xs"
-                        >
-                          <span className="text-slate-700 dark:text-slate-300">
-                            {port.label} <span className="text-slate-400">({port.name})</span>
-                          </span>
-                          <div className="flex gap-1">
-                            <button
-                              onClick={() => handleEditPort('input', port)}
-                              className="p-0.5 text-slate-500 hover:text-blue-600 dark:hover:text-blue-400"
-                              title="Edit port"
-                            >
-                              <Edit className="w-3 h-3" />
-                            </button>
-                            <button
-                              onClick={() => handleDeletePort('input', port.name)}
-                              className="p-0.5 text-slate-500 hover:text-red-600 dark:hover:text-red-400"
-                              title="Delete port"
-                            >
-                              <Trash className="w-3 h-3" />
-                            </button>
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1">
+                        Input Port Quantity
+                      </label>
+                      <select
+                        value={definition.inputs.length}
+                        onChange={(e) => {
+                          if (!selectedNode) return;
+                          const count = parseInt(e.target.value);
+                          const currentCount = definition.inputs.length;
 
-                <div className="border-t border-slate-200 dark:border-zinc-700 pt-3">
-                  <div className="flex items-center justify-between mb-2">
-                    <label className="text-xs font-medium text-slate-600 dark:text-slate-300">
-                      Output Ports
-                    </label>
-                    <button
-                      onClick={() => handleAddPort('output')}
-                      className="p-1 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors"
-                      title="Add output port"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                  <div className="space-y-1">
-                    {definition.outputs.length === 0 ? (
-                      <p className="text-xs text-slate-400 italic">No output ports</p>
-                    ) : (
-                      definition.outputs.map((port) => (
-                        <div
-                          key={port.name}
-                          className="flex items-center justify-between px-2 py-1.5 bg-slate-50 dark:bg-zinc-800 rounded text-xs"
-                        >
-                          <span className="text-slate-700 dark:text-slate-300">
-                            {port.label} <span className="text-slate-400">({port.name})</span>
-                          </span>
-                          <div className="flex gap-1">
-                            <button
-                              onClick={() => handleEditPort('output', port)}
-                              className="p-0.5 text-slate-500 hover:text-blue-600 dark:hover:text-blue-400"
-                              title="Edit port"
-                            >
-                              <Edit className="w-3 h-3" />
-                            </button>
-                            <button
-                              onClick={() => handleDeletePort('output', port.name)}
-                              className="p-0.5 text-slate-500 hover:text-red-600 dark:hover:text-red-400"
-                              title="Delete port"
-                            >
-                              <Trash className="w-3 h-3" />
-                            </button>
-                          </div>
-                        </div>
-                      ))
+                          if (count > currentCount) {
+                            // Add ports
+                            for (let i = currentCount; i < count; i++) {
+                              const portName = `in_${i + 1}`;
+                              addPortToCustomNode(selectedNode.type, 'input', {
+                                name: portName,
+                                type: 'document',
+                                label: `Input ${i + 1}`,
+                              });
+                            }
+                          } else if (count < currentCount) {
+                            // Remove ports from end
+                            for (let i = currentCount - 1; i >= count; i--) {
+                              removePortFromCustomNode(selectedNode.type, 'input', definition.inputs[i].name);
+                            }
+                          }
+                        }}
+                        className="w-full px-2.5 py-1.5 text-sm rounded-md border border-slate-200 bg-white dark:bg-zinc-800 dark:border-zinc-600 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400"
+                      >
+                        <option value="0">0 (No inputs)</option>
+                        <option value="1">1 input</option>
+                        <option value="2">2 inputs</option>
+                        <option value="3">3 inputs</option>
+                        <option value="4">4 inputs</option>
+                        <option value="5">5 inputs</option>
+                      </select>
+                      <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                        Ports auto-named from connected nodes
+                      </p>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1">
+                        Output Port Quantity
+                      </label>
+                      <select
+                        value={definition.outputs.length}
+                        onChange={(e) => {
+                          if (!selectedNode) return;
+                          const count = parseInt(e.target.value);
+                          const currentCount = definition.outputs.length;
+
+                          if (count > currentCount) {
+                            // Add ports
+                            for (let i = currentCount; i < count; i++) {
+                              const portName = `out_${i + 1}`;
+                              addPortToCustomNode(selectedNode.type, 'output', {
+                                name: portName,
+                                type: 'document',
+                                label: `Output ${i + 1}`,
+                              });
+                            }
+                          } else if (count < currentCount) {
+                            // Remove ports from end
+                            for (let i = currentCount - 1; i >= count; i--) {
+                              removePortFromCustomNode(selectedNode.type, 'output', definition.outputs[i].name);
+                            }
+                          }
+                        }}
+                        className="w-full px-2.5 py-1.5 text-sm rounded-md border border-slate-200 bg-white dark:bg-zinc-800 dark:border-zinc-600 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400"
+                      >
+                        <option value="0">0 (No outputs)</option>
+                        <option value="1">1 output</option>
+                        <option value="2">2 outputs</option>
+                        <option value="3">3 outputs</option>
+                        <option value="4">4 outputs</option>
+                        <option value="5">5 outputs</option>
+                      </select>
+                      <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                        Ports auto-named from connected nodes
+                      </p>
+                    </div>
+
+                    {(definition.inputs.length > 0 || definition.outputs.length > 0) && (
+                      <div className="pt-2 border-t border-slate-200 dark:border-zinc-700">
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                          Current ports: {definition.inputs.length} in, {definition.outputs.length} out
+                        </p>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -660,22 +622,6 @@ export default function PropertiesPanel() {
           Delete Node
         </button>
       </div>
-
-      {/* Port Editor Modal */}
-      {definition?.customizable && editingPort && (
-        <PortEditorModal
-          isOpen={portEditorOpen}
-          onClose={handleClosePortEditor}
-          onSave={handleSavePort}
-          initialPort={editingPort.port}
-          portType={editingPort.portType}
-          existingPortNames={
-            editingPort.portType === 'input'
-              ? definition.inputs.map((p) => p.name)
-              : definition.outputs.map((p) => p.name)
-          }
-        />
-      )}
 
       {/* Config Field Editor Modal */}
       {definition?.customizable && (
