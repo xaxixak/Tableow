@@ -1114,6 +1114,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
         definitionType: nodeType,
         label: definition?.label ?? nodeType,
         config: definition?.defaultConfig ? { ...definition.defaultConfig } : {},
+        _version: state.registryVersion, // Force React Flow to render properly on creation
       },
     }
     const newNodes = [...state.nodes, newNode]
