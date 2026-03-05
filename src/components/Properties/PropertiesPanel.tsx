@@ -455,22 +455,28 @@ export default function PropertiesPanel() {
                         onChange={(e) => {
                           if (!selectedNode) return;
                           const count = parseInt(e.target.value);
-                          const currentCount = definition.inputs.length;
+                          const currentPorts = [...definition.inputs];
+                          const currentCount = currentPorts.length;
 
                           if (count > currentCount) {
-                            // Add ports
+                            // Add ports - check if they already exist to prevent duplicates
                             for (let i = currentCount; i < count; i++) {
                               const portName = `in_${i + 1}`;
-                              addPortToCustomNode(selectedNode.type, 'input', {
-                                name: portName,
-                                type: 'document',
-                                label: `Input ${i + 1}`,
-                              });
+                              const portExists = currentPorts.some(p => p.name === portName);
+                              if (!portExists) {
+                                addPortToCustomNode(selectedNode.type, 'input', {
+                                  name: portName,
+                                  type: 'document',
+                                  label: `Input ${i + 1}`,
+                                });
+                              }
                             }
                           } else if (count < currentCount) {
                             // Remove ports from end
                             for (let i = currentCount - 1; i >= count; i--) {
-                              removePortFromCustomNode(selectedNode.type, 'input', definition.inputs[i].name);
+                              if (currentPorts[i]) {
+                                removePortFromCustomNode(selectedNode.type, 'input', currentPorts[i].name);
+                              }
                             }
                           }
                         }}
@@ -497,22 +503,28 @@ export default function PropertiesPanel() {
                         onChange={(e) => {
                           if (!selectedNode) return;
                           const count = parseInt(e.target.value);
-                          const currentCount = definition.outputs.length;
+                          const currentPorts = [...definition.outputs];
+                          const currentCount = currentPorts.length;
 
                           if (count > currentCount) {
-                            // Add ports
+                            // Add ports - check if they already exist to prevent duplicates
                             for (let i = currentCount; i < count; i++) {
                               const portName = `out_${i + 1}`;
-                              addPortToCustomNode(selectedNode.type, 'output', {
-                                name: portName,
-                                type: 'document',
-                                label: `Output ${i + 1}`,
-                              });
+                              const portExists = currentPorts.some(p => p.name === portName);
+                              if (!portExists) {
+                                addPortToCustomNode(selectedNode.type, 'output', {
+                                  name: portName,
+                                  type: 'document',
+                                  label: `Output ${i + 1}`,
+                                });
+                              }
                             }
                           } else if (count < currentCount) {
                             // Remove ports from end
                             for (let i = currentCount - 1; i >= count; i--) {
-                              removePortFromCustomNode(selectedNode.type, 'output', definition.outputs[i].name);
+                              if (currentPorts[i]) {
+                                removePortFromCustomNode(selectedNode.type, 'output', currentPorts[i].name);
+                              }
                             }
                           }
                         }}
