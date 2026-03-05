@@ -73,7 +73,7 @@ function GridConnections() {
   return (
     <svg
       ref={svgRef}
-      className="absolute inset-0 pointer-events-none z-5"
+      className="absolute inset-0 pointer-events-none z-10"
       width={dimensions.width || "100%"}
       height={dimensions.height || "100%"}
       style={{ overflow: "visible" }}
@@ -88,7 +88,7 @@ function GridConnections() {
           markerHeight="6"
           orient="auto-start-reverse"
         >
-          <path d="M 0 0 L 10 3.5 L 0 7 z" fill="#94a3b8" />
+          <path d="M 0 0 L 10 3.5 L 0 7 z" fill="#64748b" />
         </marker>
       </defs>
 
@@ -121,8 +121,8 @@ function GridConnections() {
             key={edge.id}
             d={pathD}
             fill="none"
-            stroke="#94a3b8"
-            strokeWidth={1.5}
+            stroke="#64748b"
+            strokeWidth={2}
             strokeLinecap="round"
             strokeLinejoin="round"
             markerEnd="url(#grid-arrow)"
