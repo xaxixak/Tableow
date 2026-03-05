@@ -805,6 +805,8 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       defaultConfig: {},
       flowType: input.baseType as any,
       documentType: input.documentType || undefined,
+      customizable: true,
+      isCustom: true,
     }
     nodeRegistry.register(def)
     set({
@@ -1200,8 +1202,15 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       customCats = rawCustomCats as CategoryDefinition[]
     }
 
+    // Migrate custom types to ensure they have customizable flag
+    const migratedCustomTypes = customTypes.map((def) => ({
+      ...def,
+      customizable: def.customizable ?? true,
+      isCustom: def.isCustom ?? true,
+    }))
+
     // Register custom types into the registry
-    for (const def of customTypes) {
+    for (const def of migratedCustomTypes) {
       nodeRegistry.register(def)
     }
     set({
@@ -1209,7 +1218,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       edges: workflow.edges,
       metadata: workflow.metadata,
       gridConfig,
-      customNodeTypes: customTypes,
+      customNodeTypes: migratedCustomTypes,
       customCategories: customCats,
       registryVersion: get().registryVersion + 1,
       selectedNodeId: null,
