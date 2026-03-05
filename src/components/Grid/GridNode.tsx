@@ -1,4 +1,4 @@
-import { memo, useMemo, useCallback, useState, useEffect, type DragEvent } from "react";
+import { useMemo, useCallback, useState, useEffect, type DragEvent } from "react";
 import { Trash2, GripVertical } from "lucide-react";
 import { nodeRegistry } from "../../registry/index.ts";
 import { useWorkflowStore } from "../../store/workflowStore.ts";
@@ -31,13 +31,14 @@ function GridNode({ node }: GridNodeProps) {
   const selectedNodeId = useWorkflowStore((s) => s.selectedNodeId);
   const selectNode = useWorkflowStore((s) => s.selectNode);
   const removeNode = useWorkflowStore((s) => s.removeNode);
+  const registryVersion = useWorkflowStore((s) => s.registryVersion);
 
   const isSelected = selectedNodeId === node.id;
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
 
   const definition = useMemo(() => {
     return node.type ? nodeRegistry.get(node.type) : undefined;
-  }, [node.type]);
+  }, [node.type, registryVersion]);
 
   const handleClick = useCallback(
     (e: React.MouseEvent) => {
@@ -190,4 +191,4 @@ function GridNode({ node }: GridNodeProps) {
   );
 }
 
-export default memo(GridNode);
+export default GridNode;
