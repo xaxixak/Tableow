@@ -625,11 +625,6 @@ export default function NodePalette() {
     [customNodeTypes]
   );
 
-  const customCatSet = useMemo(
-    () => new Set(customCategories),
-    [customCategories]
-  );
-
   // Build category trees - split into built-in and custom
   const { builtInTree, customTree } = useMemo(() => {
     const all = nodeRegistry.getAll();
