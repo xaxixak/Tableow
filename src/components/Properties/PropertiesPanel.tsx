@@ -5,6 +5,7 @@ import { nodeRegistry } from "../../registry/index.ts";
 import type { ConfigFieldDefinition } from "../../types/index.ts";
 import { cn } from "../../lib/utils.ts";
 import { ConfigFieldEditorModal } from "./ConfigFieldEditorModal";
+import { EdgePropertiesPanel } from "./EdgePropertiesPanel";
 
 function ConfigFieldDefinitionInput({
   field,
@@ -89,6 +90,7 @@ function ConfigFieldDefinitionInput({
 
 export default function PropertiesPanel() {
   const selectedNodeId = useWorkflowStore((s) => s.selectedNodeId);
+  const selectedEdgeId = useWorkflowStore((s) => s.selectedEdgeId);
   const nodes = useWorkflowStore((s) => s.nodes);
   const edges = useWorkflowStore((s) => s.edges);
   const updateNodeConfig = useWorkflowStore((s) => s.updateNodeConfig);
@@ -258,6 +260,11 @@ export default function PropertiesPanel() {
         </button>
       </aside>
     );
+  }
+
+  // Edge properties panel
+  if (selectedEdgeId && !selectedNodeId) {
+    return <EdgePropertiesPanel />;
   }
 
   // Empty state

@@ -11,6 +11,8 @@ interface NodePosition {
 function GridConnections() {
   const edges = useWorkflowStore((s) => s.edges);
   const nodes = useWorkflowStore((s) => s.nodes);
+  const selectedEdgeId = useWorkflowStore((s) => s.selectedEdgeId);
+  const selectEdge = useWorkflowStore((s) => s.selectEdge);
 
   const svgRef = useRef<SVGSVGElement>(null);
   const [positions, setPositions] = useState<Map<string, NodePosition>>(new Map());
@@ -74,7 +76,7 @@ function GridConnections() {
   return (
     <svg
       ref={svgRef}
-      className="absolute inset-0 pointer-events-none z-10"
+      className="absolute inset-0 z-10"
       width={dimensions.width || "100%"}
       height={dimensions.height || "100%"}
       style={{ overflow: "visible" }}
@@ -91,6 +93,17 @@ function GridConnections() {
         >
           <path d="M 0 0 L 10 3.5 L 0 7 z" fill="#64748b" />
         </marker>
+        <marker
+          id="grid-arrow-selected"
+          viewBox="0 0 10 7"
+          refX="9"
+          refY="3.5"
+          markerWidth="8"
+          markerHeight="6"
+          orient="auto-start-reverse"
+        >
+          <path d="M 0 0 L 10 3.5 L 0 7 z" fill="#3b82f6" />
+        </marker>
       </defs>
 
       {edges.map((edge) => {
@@ -98,6 +111,9 @@ function GridConnections() {
         const targetPos = positions.get(edge.target);
 
         if (!sourcePos || !targetPos) return null;
+
+        const isSelected = selectedEdgeId === edge.id;
+        const edgeLabel = edge.data?.label || edge.data?.number || "";
 
         // Source: right edge center
         const sx = sourcePos.x + sourcePos.width;
@@ -117,17 +133,48 @@ function GridConnections() {
             : // Step line
               `M ${sx} ${sy} L ${midX} ${sy} L ${midX} ${ty} L ${tx} ${ty}`;
 
+        // Label position: center of path
+        const labelX = midX;
+        const labelY = sy + (ty - sy) / 2;
+
         return (
-          <path
-            key={edge.id}
-            d={pathD}
-            fill="none"
-            stroke="#64748b"
-            strokeWidth={2}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            markerEnd="url(#grid-arrow)"
-          />
+          <g key={edge.id}>
+            {/* Invisible wider path for easier clicking */}
+            <path
+              d={pathD}
+              fill="none"
+              stroke="transparent"
+              strokeWidth={12}
+              style={{ cursor: "pointer", pointerEvents: "all" }}
+              onClick={() => selectEdge(edge.id)}
+            />
+            {/* Visible path */}
+            <path
+              d={pathD}
+              fill="none"
+              stroke={isSelected ? "#3b82f6" : "#64748b"}
+              strokeWidth={isSelected ? 3 : 2}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              markerEnd={isSelected ? "url(#grid-arrow-selected)" : "url(#grid-arrow)"}
+              style={{ cursor: "pointer", pointerEvents: "all" }}
+              onClick={() => selectEdge(edge.id)}
+            />
+            {/* Edge label */}
+            {edgeLabel && (
+              <text
+                x={labelX}
+                y={labelY - 8}
+                textAnchor="middle"
+                fontSize="11"
+                fill={isSelected ? "#3b82f6" : "#64748b"}
+                fontWeight={isSelected ? "600" : "normal"}
+                style={{ pointerEvents: "none", userSelect: "none" }}
+              >
+                {edgeLabel}
+              </text>
+            )}
+          </g>
         );
       })}
     </svg>

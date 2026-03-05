@@ -1,4 +1,4 @@
-import { useMemo, useCallback, useState, useEffect, type DragEvent } from "react";
+import { useMemo, useCallback, useState, useEffect, useRef, type DragEvent } from "react";
 import { Trash2, GripVertical } from "lucide-react";
 import { nodeRegistry } from "../../registry/index.ts";
 import { useWorkflowStore } from "../../store/workflowStore.ts";
@@ -31,10 +31,13 @@ function GridNode({ node }: GridNodeProps) {
   const selectedNodeId = useWorkflowStore((s) => s.selectedNodeId);
   const selectNode = useWorkflowStore((s) => s.selectNode);
   const removeNode = useWorkflowStore((s) => s.removeNode);
+  const addEdge = useWorkflowStore((s) => s.addEdge);
   const registryVersion = useWorkflowStore((s) => s.registryVersion);
 
   const isSelected = selectedNodeId === node.id;
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
+  const [isConnectionDragTarget, setIsConnectionDragTarget] = useState(false);
+  const nodeRef = useRef<HTMLDivElement>(null);
 
   const definition = useMemo(() => {
     return node.type ? nodeRegistry.get(node.type) : undefined;
@@ -86,6 +89,67 @@ function GridNode({ node }: GridNodeProps) {
     [node.id]
   );
 
+  // Connection drag handlers
+  const handleConnectionDragStart = useCallback(
+    (e: DragEvent<HTMLSpanElement>, outputIndex: number) => {
+      e.stopPropagation(); // Don't trigger node drag
+      const outputPort = definition?.outputs?.[outputIndex];
+      const handleId = outputPort?.name || `out_${outputIndex + 1}`;
+      e.dataTransfer.setData("application/grid-connection-source", node.id);
+      e.dataTransfer.setData("application/grid-connection-handle", handleId);
+      e.dataTransfer.effectAllowed = "link";
+    },
+    [node.id, definition]
+  );
+
+  const handleConnectionDragOver = useCallback(
+    (e: DragEvent<HTMLSpanElement>) => {
+      if (e.dataTransfer.types.includes("application/grid-connection-source")) {
+        e.preventDefault();
+        e.stopPropagation();
+        e.dataTransfer.dropEffect = "link";
+        setIsConnectionDragTarget(true);
+      }
+    },
+    []
+  );
+
+  const handleConnectionDragLeave = useCallback(() => {
+    setIsConnectionDragTarget(false);
+  }, []);
+
+  const handleConnectionDragEnd = useCallback(() => {
+    // Clear drag target state when drag ends (whether successful or not)
+    setIsConnectionDragTarget(false);
+  }, []);
+
+  const handleConnectionDrop = useCallback(
+    (e: DragEvent<HTMLSpanElement>, inputIndex: number) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsConnectionDragTarget(false);
+
+      const sourceNodeId = e.dataTransfer.getData("application/grid-connection-source");
+      const sourceHandle = e.dataTransfer.getData("application/grid-connection-handle");
+
+      if (!sourceNodeId || sourceNodeId === node.id) {
+        return; // Can't connect to self
+      }
+
+      const inputPort = definition?.inputs?.[inputIndex];
+      const targetHandle = inputPort?.name || `in_${inputIndex + 1}`;
+
+      // Create the edge
+      addEdge({
+        source: sourceNodeId,
+        sourceHandle: sourceHandle || undefined,
+        target: node.id,
+        targetHandle: targetHandle,
+      });
+    },
+    [node.id, addEdge, definition]
+  );
+
   const label = (node.data.label as string) ?? definition?.label ?? node.type ?? "Node";
   const icon = definition?.icon;
   const category = definition?.category ?? "processing";
@@ -96,6 +160,7 @@ function GridNode({ node }: GridNodeProps) {
   return (
     <>
       <div
+        ref={nodeRef}
         draggable
         onDragStart={handleDragStart}
         data-node-id={node.id}
@@ -106,20 +171,28 @@ function GridNode({ node }: GridNodeProps) {
           "bg-white border border-slate-200 shadow-sm",
           "text-left w-full min-w-0 cursor-pointer",
           "hover:shadow-md transition-shadow duration-100",
-          isSelected && "ring-2 ring-blue-500 border-blue-300 shadow-md"
+          isSelected && "ring-2 ring-blue-500 border-blue-300 shadow-md",
+          isConnectionDragTarget && "ring-2 ring-green-500 border-green-300"
         )}
         role="button"
         tabIndex={0}
         aria-label={`Node: ${label}`}
         aria-pressed={isSelected}
       >
-        {/* Input port indicators */}
+        {/* Input port indicators - droppable */}
         {inputCount > 0 && (
           <div className="absolute -left-1 top-1/2 -translate-y-1/2 flex flex-col gap-1">
             {Array.from({ length: inputCount }).map((_, i) => (
               <span
                 key={`in-${i}`}
-                className="block w-2 h-2 rounded-full bg-slate-400 border border-slate-500"
+                onDragOver={handleConnectionDragOver}
+                onDragLeave={handleConnectionDragLeave}
+                onDrop={(e) => handleConnectionDrop(e, i)}
+                className={cn(
+                  "block w-2 h-2 rounded-full bg-slate-400 border border-slate-500",
+                  "hover:bg-green-400 hover:border-green-600 hover:scale-125 transition-all cursor-crosshair"
+                )}
+                title="Drop connection here"
               />
             ))}
           </div>
@@ -158,13 +231,20 @@ function GridNode({ node }: GridNodeProps) {
           <Trash2 className="w-3 h-3" />
         </button>
 
-        {/* Output port indicators */}
+        {/* Output port indicators - draggable */}
         {outputCount > 0 && (
           <div className="absolute -right-1 top-1/2 -translate-y-1/2 flex flex-col gap-1">
             {Array.from({ length: outputCount }).map((_, i) => (
               <span
                 key={`out-${i}`}
-                className="block w-2 h-2 rounded-full bg-slate-400 border border-slate-500"
+                draggable
+                onDragStart={(e) => handleConnectionDragStart(e, i)}
+                onDragEnd={handleConnectionDragEnd}
+                className={cn(
+                  "block w-2 h-2 rounded-full bg-slate-400 border border-slate-500",
+                  "hover:bg-blue-400 hover:border-blue-600 hover:scale-125 transition-all cursor-crosshair"
+                )}
+                title="Drag to connect"
               />
             ))}
           </div>

@@ -150,6 +150,21 @@ export interface WorkflowState {
   updateNodeConfig: (id: string, config: Record<string, unknown>) => void
   selectNode: (id: string | null) => void
 
+  // Edge operations
+  addEdge: (params: {
+    source: string
+    target: string
+    sourceHandle?: string
+    targetHandle?: string
+  }) => void
+  removeEdge: (id: string) => void
+  selectEdge: (id: string | null) => void
+  selectedEdgeId: string | null
+  updateEdge: (
+    id: string,
+    data: Partial<{ label: string; description: string; properties: Record<string, unknown> }>
+  ) => void
+
   // Workflow operations
   loadWorkflow: (workflow: Workflow) => void
   getWorkflow: () => Workflow
@@ -339,6 +354,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   edges: [],
   metadata: createEmptyMetadata(),
   selectedNodeId: null,
+  selectedEdgeId: null,
   viewMode: 'grid',
   darkMode: localStorage.getItem('darkMode') === 'true',
   palettCollapsed: false,
@@ -1144,7 +1160,21 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       return
     }
 
-    const newEdges = addEdge(connection, state.edges)
+    // Auto-assign edge number
+    const edgeNumber = getNextEdgeNumber(state.edges)
+
+    // Create edge with number and empty label/description
+    const connectionWithData = {
+      ...connection,
+      data: {
+        number: edgeNumber,
+        label: '',
+        description: '',
+        properties: {},
+      },
+    }
+
+    const newEdges = addEdge(connectionWithData, state.edges)
     set({
       edges: newEdges,
       ...pushHistory({ ...state, edges: newEdges }),
@@ -1230,7 +1260,80 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   },
 
   selectNode: (id) => {
-    set({ selectedNodeId: id })
+    set({ selectedNodeId: id, selectedEdgeId: null })
+  },
+
+  // --- Edge operations ---
+
+  addEdge: (params) => {
+    const state = get()
+
+    // Prevent duplicate edges
+    const isDuplicate = state.edges.some(
+      (e) =>
+        e.source === params.source &&
+        e.target === params.target &&
+        e.sourceHandle === params.sourceHandle &&
+        e.targetHandle === params.targetHandle
+    )
+
+    if (isDuplicate) {
+      console.log('Prevented duplicate edge:', params)
+      return
+    }
+
+    // Auto-assign edge number
+    const edgeNumber = getNextEdgeNumber(state.edges)
+
+    // Create connection with data
+    const connection = {
+      ...params,
+      data: {
+        number: edgeNumber,
+        label: '',
+        description: '',
+        properties: {},
+      },
+    }
+
+    const newEdges = addEdge(connection, state.edges)
+    set({
+      edges: newEdges,
+      ...pushHistory({ ...state, edges: newEdges }),
+    })
+  },
+
+  removeEdge: (id) => {
+    const state = get()
+    const newEdges = state.edges.filter((e) => e.id !== id)
+    set({
+      edges: newEdges,
+      selectedEdgeId: state.selectedEdgeId === id ? null : state.selectedEdgeId,
+      ...pushHistory({ ...state, edges: newEdges }),
+    })
+  },
+
+  selectEdge: (id) => {
+    set({ selectedEdgeId: id, selectedNodeId: null })
+  },
+
+  updateEdge: (id, data) => {
+    const state = get()
+    const newEdges = state.edges.map((edge) =>
+      edge.id === id
+        ? {
+            ...edge,
+            data: {
+              ...edge.data,
+              ...data,
+            },
+          }
+        : edge
+    )
+    set({
+      edges: newEdges,
+      ...pushHistory({ ...state, edges: newEdges }),
+    })
   },
 
   // --- Workflow operations ---
