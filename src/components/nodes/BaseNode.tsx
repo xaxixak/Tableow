@@ -1,6 +1,7 @@
 import { memo, useMemo } from "react";
 import { Handle, Position, type NodeProps } from "@xyflow/react";
 import { nodeRegistry } from "../../registry/index.ts";
+import { useWorkflowStore } from "../../store/workflowStore.ts";
 import type { PortDefinition } from "../../types/index.ts";
 import { cn } from "../../lib/utils.ts";
 
@@ -37,9 +38,11 @@ function getHandleTop(index: number, total: number): string {
 }
 
 function BaseNode({ data, type, selected }: NodeProps) {
+  const registryVersion = useWorkflowStore((state) => state.registryVersion);
+
   const definition = useMemo(() => {
     return type ? nodeRegistry.get(type) : undefined;
-  }, [type]);
+  }, [type, registryVersion]);
 
   const inputs: PortDefinition[] = definition?.inputs ?? [];
   const outputs: PortDefinition[] = definition?.outputs ?? [];
