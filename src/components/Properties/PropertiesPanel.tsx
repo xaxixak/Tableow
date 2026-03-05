@@ -96,6 +96,7 @@ export default function PropertiesPanel() {
   const collapsed = useWorkflowStore((s) => s.propertiesCollapsed);
   const toggleProperties = useWorkflowStore((s) => s.toggleProperties);
   const customCategories = useWorkflowStore((s) => s.customCategories);
+  const registryVersion = useWorkflowStore((s) => s.registryVersion);
   const updateCustomNodeDefinition = useWorkflowStore((s) => s.updateCustomNodeDefinition);
   const addPortToCustomNode = useWorkflowStore((s) => s.addPortToCustomNode);
   const removePortFromCustomNode = useWorkflowStore((s) => s.removePortFromCustomNode);
@@ -119,7 +120,7 @@ export default function PropertiesPanel() {
   const definition = useMemo(() => {
     if (!selectedNode?.type) return undefined;
     return nodeRegistry.get(selectedNode.type);
-  }, [selectedNode?.type]);
+  }, [selectedNode?.type, registryVersion]);
 
   const config = selectedNode?.data?.config as
     | Record<string, unknown>
