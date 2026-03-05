@@ -213,6 +213,7 @@ function AddNodeForm({
   const addCustomNodeType = useWorkflowStore((s) => s.addCustomNodeType);
   const [label, setLabel] = useState("");
   const [baseType, setBaseType] = useState("process");
+  const [documentType, setDocumentType] = useState("");
   const [icon, setIcon] = useState(ICON_PRESETS[0]);
 
   const handleSubmit = useCallback(
@@ -224,10 +225,11 @@ function AddNodeForm({
         category: categoryPath,
         icon,
         baseType: baseType as "process" | "decision" | "start" | "output",
+        documentType: documentType.trim() || undefined,
       });
       onClose();
     },
-    [label, categoryPath, icon, baseType, addCustomNodeType, onClose]
+    [label, categoryPath, icon, baseType, documentType, addCustomNodeType, onClose]
   );
 
   const inputCls = cn(
@@ -252,6 +254,13 @@ function AddNodeForm({
           className={inputCls}
           autoFocus
           required
+        />
+        <input
+          type="text"
+          value={documentType}
+          onChange={(e) => setDocumentType(e.target.value)}
+          placeholder="Document type (optional)"
+          className={inputCls}
         />
         <div className="flex gap-1.5">
           <select value={baseType} onChange={(e) => setBaseType(e.target.value)} className={inputCls}>

@@ -798,6 +798,8 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       outputs: ports.outputs,
       configSchema: [],
       defaultConfig: {},
+      flowType: input.baseType as any,
+      documentType: input.documentType || undefined,
     }
     nodeRegistry.register(def)
     set({
