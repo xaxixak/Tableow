@@ -565,11 +565,11 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
 
       // Update instance label if it matches old definition label
       if (updates.label && oldDef.label !== updates.label && node.data.label === oldDef.label) {
-        return { ...node, data: { ...node.data, label: updates.label } }
+        return { ...node, data: { ...node.data, label: updates.label, _version: state.registryVersion + 1 } }
       }
 
-      // Force re-render by creating new data object (breaks memo equality check)
-      return { ...node, data: { ...node.data } }
+      // Force re-render by adding version to break React Flow's equality check
+      return { ...node, data: { ...node.data, _version: state.registryVersion + 1 } }
     })
 
     set({
