@@ -33,12 +33,13 @@ function GridNode({ node }: GridNodeProps) {
   const removeNode = useWorkflowStore((s) => s.removeNode);
   const addEdge = useWorkflowStore((s) => s.addEdge);
   const registryVersion = useWorkflowStore((s) => s.registryVersion);
+  const isCreatingConnection = useWorkflowStore((s) => s.isCreatingConnection);
+  const setIsCreatingConnection = useWorkflowStore((s) => s.setIsCreatingConnection);
 
   const isSelected = selectedNodeId === node.id;
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [isConnectionDragTarget, setIsConnectionDragTarget] = useState(false);
   const nodeRef = useRef<HTMLDivElement>(null);
-  const isDraggingConnection = useRef(false);
 
   const definition = useMemo(() => {
     return node.type ? nodeRegistry.get(node.type) : undefined;
@@ -85,7 +86,7 @@ function GridNode({ node }: GridNodeProps) {
   const handleDragStart = useCallback(
     (e: DragEvent<HTMLDivElement>) => {
       // Don't drag node if currently dragging a connection
-      if (isDraggingConnection.current) {
+      if (isCreatingConnection) {
         e.preventDefault();
         e.stopPropagation();
         return;
@@ -93,21 +94,21 @@ function GridNode({ node }: GridNodeProps) {
       e.dataTransfer.setData("application/grid-node-move", node.id);
       e.dataTransfer.effectAllowed = "move";
     },
-    [node.id]
+    [node.id, isCreatingConnection]
   );
 
   // Connection drag handlers
   const handleConnectionDragStart = useCallback(
     (e: DragEvent<HTMLSpanElement>, outputIndex: number) => {
       e.stopPropagation(); // Don't trigger node drag
-      isDraggingConnection.current = true;
+      setIsCreatingConnection(true);
       const outputPort = definition?.outputs?.[outputIndex];
       const handleId = outputPort?.name || `out_${outputIndex + 1}`;
       e.dataTransfer.setData("application/grid-connection-source", node.id);
       e.dataTransfer.setData("application/grid-connection-handle", handleId);
       e.dataTransfer.effectAllowed = "link";
     },
-    [node.id, definition]
+    [node.id, definition, setIsCreatingConnection]
   );
 
   const handleConnectionDragOver = useCallback(
@@ -128,15 +129,15 @@ function GridNode({ node }: GridNodeProps) {
 
   const handleConnectionDragEnd = useCallback(() => {
     // Clear drag target state when drag ends (whether successful or not)
-    isDraggingConnection.current = false;
+    setIsCreatingConnection(false);
     setIsConnectionDragTarget(false);
-  }, []);
+  }, [setIsCreatingConnection]);
 
   const handleConnectionDrop = useCallback(
     (e: DragEvent<HTMLSpanElement>, inputIndex: number) => {
       e.preventDefault();
       e.stopPropagation();
-      isDraggingConnection.current = false;
+      setIsCreatingConnection(false);
       setIsConnectionDragTarget(false);
 
       const sourceNodeId = e.dataTransfer.getData("application/grid-connection-source");
@@ -157,7 +158,7 @@ function GridNode({ node }: GridNodeProps) {
         targetHandle: targetHandle,
       });
     },
-    [node.id, addEdge, definition]
+    [node.id, addEdge, definition, setIsCreatingConnection]
   );
 
   const label = (node.data.label as string) ?? definition?.label ?? node.type ?? "Node";

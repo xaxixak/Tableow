@@ -71,6 +71,8 @@ export interface WorkflowState {
   edges: WorkflowEdge[]
   metadata: WorkflowMetadata
   selectedNodeId: string | null
+  isCreatingConnection: boolean
+  setIsCreatingConnection: (isCreating: boolean) => void
 
   // View mode
   viewMode: 'canvas' | 'grid'
@@ -355,6 +357,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   metadata: createEmptyMetadata(),
   selectedNodeId: null,
   selectedEdgeId: null,
+  isCreatingConnection: false,
   viewMode: 'grid',
   darkMode: localStorage.getItem('darkMode') === 'true',
   palettCollapsed: false,
@@ -365,6 +368,10 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   registryVersion: 0,
   history: [{ nodes: [], edges: [], gridConfig: EMPTY_GRID }],
   historyIndex: 0,
+
+  setIsCreatingConnection: (isCreating) => {
+    set({ isCreatingConnection: isCreating })
+  },
 
   toggleDarkMode: () => {
     const newDarkMode = !get().darkMode
