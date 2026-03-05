@@ -70,6 +70,10 @@ export interface WorkflowState {
   viewMode: 'canvas' | 'grid'
   setViewMode: (mode: 'canvas' | 'grid') => void
 
+  // Dark mode
+  darkMode: boolean
+  toggleDarkMode: () => void
+
   // Grid configuration
   gridConfig: GridConfig
   addLane: (lane: Omit<LaneDefinition, 'id'>) => void
@@ -273,12 +277,24 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   metadata: createEmptyMetadata(),
   selectedNodeId: null,
   viewMode: 'grid',
+  darkMode: localStorage.getItem('darkMode') === 'true',
   gridConfig: { lanes: [], stages: [], placements: [] },
   customCategories: [],
   customNodeTypes: [],
   registryVersion: 0,
   history: [{ nodes: [], edges: [], gridConfig: EMPTY_GRID }],
   historyIndex: 0,
+
+  toggleDarkMode: () => {
+    const newDarkMode = !get().darkMode
+    localStorage.setItem('darkMode', String(newDarkMode))
+    set({ darkMode: newDarkMode })
+    if (newDarkMode) {
+      document.documentElement.classList.add('dark')
+    } else {
+      document.documentElement.classList.remove('dark')
+    }
+  },
 
   setViewMode: (mode) => {
     // When switching to canvas, auto-layout nodes based on grid placement

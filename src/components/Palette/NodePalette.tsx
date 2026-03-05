@@ -359,7 +359,6 @@ function CategorySection({
 }) {
   const [open, setOpen] = useState(defaultOpen);
   const [addingNode, setAddingNode] = useState(false);
-  const [addingSubCategory, setAddingSubCategory] = useState(false);
   const [editingNode, setEditingNode] = useState<string | null>(null);
   const [showMenu, setShowMenu] = useState(false);
   const removeCustomCategory = useWorkflowStore((s) => s.removeCustomCategory);
