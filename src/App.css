@@ -1,0 +1,7 @@
+/* App-level overrides — kept minimal since Tailwind handles most styling */
+
+/* Ensure React Flow container fills its parent */
+.react-flow {
+  width: 100%;
+  height: 100%;
+}
