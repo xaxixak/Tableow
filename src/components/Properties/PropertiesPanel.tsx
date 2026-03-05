@@ -2,7 +2,7 @@ import { useMemo, useCallback, useState } from "react";
 import { Trash2, X, ChevronRight, Settings2, Plus, Edit, Trash } from "lucide-react";
 import { useWorkflowStore } from "../../store/workflowStore.ts";
 import { nodeRegistry } from "../../registry/index.ts";
-import type { ConfigFieldDefinition } from "../../types/index.ts";
+import type { ConfigFieldDefinition, PortDefinition } from "../../types/index.ts";
 import { cn } from "../../lib/utils.ts";
 import { ConfigFieldEditorModal } from "./ConfigFieldEditorModal";
 import { EdgePropertiesPanel } from "./EdgePropertiesPanel";
@@ -507,28 +507,6 @@ export default function PropertiesPanel() {
                     ))}
                   </select>
                 </div>
-                <div>
-                  <label className="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1">
-                    Flow Type
-                  </label>
-                  <select
-                    value={editFlowType}
-                    onChange={(e) => setEditFlowType(e.target.value as any)}
-                    className="w-full px-2.5 py-1.5 text-sm rounded-md border border-slate-200 bg-white dark:bg-zinc-800 dark:border-zinc-600 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400"
-                  >
-                    <option value="start">Start</option>
-                    <option value="process">Process</option>
-                    <option value="decision">Decision</option>
-                    <option value="output">Output</option>
-                    <option value="end">End</option>
-                    <option value="subprocess">Subprocess</option>
-                    <option value="document">Document</option>
-                  </select>
-                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                    Determines node shape and workflow behavior
-                  </p>
-                </div>
-
                 {/* Port Quantity Management */}
                 <div className="border-t border-slate-200 dark:border-zinc-700 pt-3">
                   <div className="space-y-3">
@@ -543,9 +521,9 @@ export default function PropertiesPanel() {
                           const targetCount = parseInt(e.target.value);
 
                           // Generate the exact number of ports needed
-                          const newInputs = Array.from({ length: targetCount }, (_, i) => ({
+                          const newInputs: PortDefinition[] = Array.from({ length: targetCount }, (_, i) => ({
                             name: `in_${i + 1}`,
-                            type: 'document',
+                            type: 'document' as const,
                             label: `Input ${i + 1}`,
                           }));
 
@@ -579,9 +557,9 @@ export default function PropertiesPanel() {
                           const targetCount = parseInt(e.target.value);
 
                           // Generate the exact number of ports needed
-                          const newOutputs = Array.from({ length: targetCount }, (_, i) => ({
+                          const newOutputs: PortDefinition[] = Array.from({ length: targetCount }, (_, i) => ({
                             name: `out_${i + 1}`,
-                            type: 'document',
+                            type: 'document' as const,
                             label: `Output ${i + 1}`,
                           }));
 

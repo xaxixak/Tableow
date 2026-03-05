@@ -18,6 +18,7 @@ import type {
   StageDefinition,
   NodeDefinition,
   CategoryDefinition,
+  ConfigFieldDefinition,
 } from '@/types/index.ts'
 import { nodeRegistry } from '@/registry/index.ts'
 import {
@@ -863,6 +864,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       outputs: ports.outputs,
       configSchema: [],
       defaultConfig: {},
+      flowType: input.baseType as NodeDefinition['flowType'],
       customizable: true,
       isCustom: true,
     }
