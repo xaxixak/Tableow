@@ -109,8 +109,7 @@ export default function PropertiesPanel() {
   const [editLabel, setEditLabel] = useState("");
   const [editDescription, setEditDescription] = useState("");
   const [editCategory, setEditCategory] = useState("");
-  const [editFlowType, setEditFlowType] = useState<"start" | "process" | "decision" | "output" | "end" | "subprocess">("process");
-  const [editDocumentType, setEditDocumentType] = useState("");
+  const [editFlowType, setEditFlowType] = useState<"start" | "process" | "decision" | "output" | "end" | "subprocess" | "document">("process");
   const [configEditorOpen, setConfigEditorOpen] = useState(false);
   const [editingConfigField, setEditingConfigField] = useState<ConfigFieldDefinition | null>(null);
 
@@ -154,7 +153,6 @@ export default function PropertiesPanel() {
       setEditDescription(definition.description ?? "");
       setEditCategory(definition.category);
       setEditFlowType(definition.flowType);
-      setEditDocumentType(definition.documentType ?? "");
     }
     setEditMode(!editMode);
   }, [editMode, definition]);
@@ -167,11 +165,10 @@ export default function PropertiesPanel() {
       description: editDescription,
       category: editCategory,
       flowType: editFlowType,
-      documentType: editDocumentType || undefined,
     });
 
     setEditMode(false);
-  }, [selectedNode, definition, editLabel, editDescription, editCategory, editFlowType, editDocumentType, updateCustomNodeDefinition]);
+  }, [selectedNode, definition, editLabel, editDescription, editCategory, editFlowType, updateCustomNodeDefinition]);
 
   const handleCancelEdit = useCallback(() => {
     setEditMode(false);
@@ -505,21 +502,6 @@ export default function PropertiesPanel() {
                   </select>
                   <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                     Determines node shape and workflow behavior
-                  </p>
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1">
-                    Document Type (optional)
-                  </label>
-                  <input
-                    type="text"
-                    value={editDocumentType}
-                    onChange={(e) => setEditDocumentType(e.target.value)}
-                    placeholder="e.g., invoice, approval, video-render"
-                    className="w-full px-2.5 py-1.5 text-sm rounded-md border border-slate-200 bg-white dark:bg-zinc-800 dark:border-zinc-600 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400"
-                  />
-                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                    Freeform label for classification
                   </p>
                 </div>
 
