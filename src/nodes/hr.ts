@@ -1,4 +1,39 @@
-import type { NodeDefinition } from "../types/index.ts";
+import type { NodeDefinition, ConfigFieldDefinition } from "../types/index.ts";
+
+// Standard document config schema for all document nodes
+const standardDocumentConfig: ConfigFieldDefinition[] = [
+  {
+    key: "documentNumber",
+    label: "Document Number",
+    type: "text",
+    defaultValue: "",
+  },
+  {
+    key: "status",
+    label: "Status",
+    type: "select",
+    options: [
+      { label: "Draft", value: "draft" },
+      { label: "Pending", value: "pending" },
+      { label: "Approved", value: "approved" },
+      { label: "Rejected", value: "rejected" },
+      { label: "Completed", value: "completed" },
+    ],
+    defaultValue: "draft",
+  },
+  {
+    key: "notes",
+    label: "Notes",
+    type: "textarea",
+    defaultValue: "",
+  },
+  {
+    key: "reference",
+    label: "Reference",
+    type: "text",
+    defaultValue: "",
+  },
+];
 
 export const leaveRequestNode: NodeDefinition = {
   type: "leave-request",
@@ -11,27 +46,8 @@ export const leaveRequestNode: NodeDefinition = {
     { name: "approved", type: "document", label: "Approved" },
     { name: "rejected", type: "document", label: "Rejected" },
   ],
-  configSchema: [
-    {
-      key: "leaveType",
-      label: "Leave Type",
-      type: "select",
-      options: [
-        { label: "Annual", value: "annual" },
-        { label: "Sick", value: "sick" },
-        { label: "Personal", value: "personal" },
-        { label: "Maternity", value: "maternity" },
-      ],
-      defaultValue: "annual",
-    },
-    {
-      key: "days",
-      label: "Number of Days",
-      type: "number",
-      defaultValue: 1,
-    },
-  ],
-  defaultConfig: { leaveType: "annual", days: 1 },
+  configSchema: standardDocumentConfig,
+  defaultConfig: { documentNumber: "", status: "draft", notes: "", reference: "" },
   color: "bg-green-600",
   flowType: "decision",
   documentType: "leave-request",
@@ -45,27 +61,8 @@ export const expenseClaimNode: NodeDefinition = {
   icon: "\uD83D\uDCB0",
   inputs: [],
   outputs: [{ name: "claim", type: "document", label: "Claim" }],
-  configSchema: [
-    {
-      key: "category",
-      label: "Expense Category",
-      type: "select",
-      options: [
-        { label: "Travel", value: "travel" },
-        { label: "Meals", value: "meals" },
-        { label: "Office Supplies", value: "supplies" },
-        { label: "Other", value: "other" },
-      ],
-      defaultValue: "travel",
-    },
-    {
-      key: "amount",
-      label: "Amount",
-      type: "number",
-      defaultValue: 0,
-    },
-  ],
-  defaultConfig: { category: "travel", amount: 0 },
+  configSchema: standardDocumentConfig,
+  defaultConfig: { documentNumber: "", status: "draft", notes: "", reference: "" },
   color: "bg-amber-600",
   flowType: "start",
   documentType: "expense-claim",
@@ -79,26 +76,8 @@ export const timesheetNode: NodeDefinition = {
   icon: "\u23F0",
   inputs: [],
   outputs: [{ name: "timesheet", type: "document", label: "Timesheet" }],
-  configSchema: [
-    {
-      key: "period",
-      label: "Period",
-      type: "select",
-      options: [
-        { label: "Daily", value: "daily" },
-        { label: "Weekly", value: "weekly" },
-        { label: "Monthly", value: "monthly" },
-      ],
-      defaultValue: "weekly",
-    },
-    {
-      key: "hours",
-      label: "Total Hours",
-      type: "number",
-      defaultValue: 0,
-    },
-  ],
-  defaultConfig: { period: "weekly", hours: 0 },
+  configSchema: standardDocumentConfig,
+  defaultConfig: { documentNumber: "", status: "draft", notes: "", reference: "" },
   color: "bg-sky-600",
   flowType: "start",
   documentType: "timesheet",
@@ -115,27 +94,8 @@ export const travelRequestNode: NodeDefinition = {
     { name: "approved", type: "document", label: "Approved" },
     { name: "rejected", type: "document", label: "Rejected" },
   ],
-  configSchema: [
-    {
-      key: "destination",
-      label: "Destination",
-      type: "text",
-      defaultValue: "",
-    },
-    {
-      key: "purpose",
-      label: "Purpose",
-      type: "text",
-      defaultValue: "",
-    },
-    {
-      key: "estimatedCost",
-      label: "Estimated Cost",
-      type: "number",
-      defaultValue: 0,
-    },
-  ],
-  defaultConfig: { destination: "", purpose: "", estimatedCost: 0 },
+  configSchema: standardDocumentConfig,
+  defaultConfig: { documentNumber: "", status: "draft", notes: "", reference: "" },
   color: "bg-indigo-600",
   flowType: "decision",
   documentType: "travel-request",
@@ -152,21 +112,8 @@ export const overtimeRequestNode: NodeDefinition = {
     { name: "approved", type: "document", label: "Approved" },
     { name: "rejected", type: "document", label: "Rejected" },
   ],
-  configSchema: [
-    {
-      key: "hours",
-      label: "OT Hours",
-      type: "number",
-      defaultValue: 0,
-    },
-    {
-      key: "reason",
-      label: "Reason",
-      type: "text",
-      defaultValue: "",
-    },
-  ],
-  defaultConfig: { hours: 0, reason: "" },
+  configSchema: standardDocumentConfig,
+  defaultConfig: { documentNumber: "", status: "draft", notes: "", reference: "" },
   color: "bg-violet-600",
   flowType: "decision",
   documentType: "overtime-request",

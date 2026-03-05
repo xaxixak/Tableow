@@ -1261,8 +1261,74 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       isCustom: def.isCustom ?? true,
     }))
 
+    // Auto-create missing custom node definitions
+    const existingCustomTypes = new Set(migratedCustomTypes.map((def) => def.type))
+    const missingTypes = new Map<string, NodeDefinition>()
+
+    for (const node of workflow.nodes) {
+      const nodeType = node.type
+      // Check if this is a custom type that's not defined
+      if (nodeType.startsWith('custom.') && !existingCustomTypes.has(nodeType)) {
+        if (!missingTypes.has(nodeType)) {
+          // Create standard document node definition
+          const label = (node.data.label as string) || nodeType.replace('custom.', '').replace(/-/g, ' ')
+          missingTypes.set(nodeType, {
+            type: nodeType,
+            label,
+            category: 'General',
+            description: `Auto-generated from old workflow: ${label}`,
+            icon: '📄',
+            inputs: [{ name: 'in', type: 'document', label: 'Input' }],
+            outputs: [{ name: 'out', type: 'document', label: 'Output' }],
+            configSchema: [
+              {
+                key: 'documentNumber',
+                label: 'Document Number',
+                type: 'text',
+                defaultValue: '',
+              },
+              {
+                key: 'status',
+                label: 'Status',
+                type: 'select',
+                options: [
+                  { label: 'Draft', value: 'draft' },
+                  { label: 'Pending', value: 'pending' },
+                  { label: 'Approved', value: 'approved' },
+                  { label: 'Rejected', value: 'rejected' },
+                  { label: 'Completed', value: 'completed' },
+                ],
+                defaultValue: 'draft',
+              },
+              {
+                key: 'notes',
+                label: 'Notes',
+                type: 'textarea',
+                defaultValue: '',
+              },
+              {
+                key: 'reference',
+                label: 'Reference',
+                type: 'text',
+                defaultValue: '',
+              },
+            ],
+            defaultConfig: { documentNumber: '', status: 'draft', notes: '', reference: '' },
+            color: 'bg-slate-600',
+            flowType: 'document',
+            documentType: label.toLowerCase().replace(/\s+/g, '-'),
+            customizable: true,
+            isCustom: true,
+          })
+        }
+      }
+    }
+
+    // Add auto-created definitions to migratedCustomTypes
+    const allCustomTypes = [...migratedCustomTypes, ...Array.from(missingTypes.values())]
+
     // Register custom types into the registry
-    for (const def of migratedCustomTypes) {
+    for (const def of allCustomTypes) {
       nodeRegistry.register(def)
     }
     set({
@@ -1270,7 +1336,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       edges: workflow.edges,
       metadata: workflow.metadata,
       gridConfig,
-      customNodeTypes: migratedCustomTypes,
+      customNodeTypes: allCustomTypes,
       customCategories: customCats,
       registryVersion: get().registryVersion + 1,
       selectedNodeId: null,

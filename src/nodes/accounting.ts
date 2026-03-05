@@ -1,4 +1,39 @@
-import type { NodeDefinition } from "../types/index.ts";
+import type { NodeDefinition, ConfigFieldDefinition } from "../types/index.ts";
+
+// Standard document config schema for all document nodes
+const standardDocumentConfig: ConfigFieldDefinition[] = [
+  {
+    key: "documentNumber",
+    label: "Document Number",
+    type: "text",
+    defaultValue: "",
+  },
+  {
+    key: "status",
+    label: "Status",
+    type: "select",
+    options: [
+      { label: "Draft", value: "draft" },
+      { label: "Pending", value: "pending" },
+      { label: "Approved", value: "approved" },
+      { label: "Rejected", value: "rejected" },
+      { label: "Completed", value: "completed" },
+    ],
+    defaultValue: "draft",
+  },
+  {
+    key: "notes",
+    label: "Notes",
+    type: "textarea",
+    defaultValue: "",
+  },
+  {
+    key: "reference",
+    label: "Reference",
+    type: "text",
+    defaultValue: "",
+  },
+];
 
 // --- AR (Accounts Receivable) ---
 
@@ -10,27 +45,10 @@ export const invoiceNode: NodeDefinition = {
   icon: "\uD83D\uDCCB",
   inputs: [{ name: "document", type: "document", label: "Document" }],
   outputs: [{ name: "invoice", type: "document", label: "Invoice" }],
-  configSchema: [
-    {
-      key: "invoiceType",
-      label: "Invoice Type",
-      type: "select",
-      options: [
-        { label: "Sales", value: "sales" },
-        { label: "Credit Note", value: "credit-note" },
-      ],
-      defaultValue: "sales",
-    },
-    {
-      key: "amount",
-      label: "Amount",
-      type: "number",
-      defaultValue: 0,
-    },
-  ],
-  defaultConfig: { invoiceType: "sales", amount: 0 },
+  configSchema: standardDocumentConfig,
+  defaultConfig: { documentNumber: "", status: "draft", notes: "", reference: "" },
   color: "bg-blue-600",
-  flowType: "process",
+  flowType: "document",
   documentType: "invoice",
 };
 
@@ -42,22 +60,10 @@ export const receiptNode: NodeDefinition = {
   icon: "\uD83D\uDCE8",
   inputs: [{ name: "payment", type: "document", label: "Payment" }],
   outputs: [{ name: "receipt", type: "document", label: "Receipt" }],
-  configSchema: [
-    {
-      key: "method",
-      label: "Payment Method",
-      type: "select",
-      options: [
-        { label: "Bank Transfer", value: "bank" },
-        { label: "Cash", value: "cash" },
-        { label: "Check", value: "check" },
-      ],
-      defaultValue: "bank",
-    },
-  ],
-  defaultConfig: { method: "bank" },
+  configSchema: standardDocumentConfig,
+  defaultConfig: { documentNumber: "", status: "draft", notes: "", reference: "" },
   color: "bg-green-600",
-  flowType: "process",
+  flowType: "document",
   documentType: "receipt",
 };
 
@@ -69,17 +75,10 @@ export const goodsReceiptNode: NodeDefinition = {
   icon: "\uD83D\uDCE6",
   inputs: [{ name: "order", type: "document", label: "Order" }],
   outputs: [{ name: "receipt", type: "document", label: "GR" }],
-  configSchema: [
-    {
-      key: "warehouse",
-      label: "Warehouse",
-      type: "text",
-      defaultValue: "",
-    },
-  ],
-  defaultConfig: { warehouse: "" },
+  configSchema: standardDocumentConfig,
+  defaultConfig: { documentNumber: "", status: "draft", notes: "", reference: "" },
   color: "bg-emerald-600",
-  flowType: "process",
+  flowType: "document",
   documentType: "goods-receipt",
 };
 
@@ -93,23 +92,10 @@ export const billNode: NodeDefinition = {
   icon: "\uD83E\uDDFE",
   inputs: [{ name: "document", type: "document", label: "Document" }],
   outputs: [{ name: "bill", type: "document", label: "Bill" }],
-  configSchema: [
-    {
-      key: "vendor",
-      label: "Vendor",
-      type: "text",
-      defaultValue: "",
-    },
-    {
-      key: "amount",
-      label: "Amount",
-      type: "number",
-      defaultValue: 0,
-    },
-  ],
-  defaultConfig: { vendor: "", amount: 0 },
+  configSchema: standardDocumentConfig,
+  defaultConfig: { documentNumber: "", status: "draft", notes: "", reference: "" },
   color: "bg-orange-600",
-  flowType: "process",
+  flowType: "document",
   documentType: "bill",
 };
 
@@ -124,34 +110,10 @@ export const purchaseRequestBillNode: NodeDefinition = {
     { name: "pr", type: "document", label: "PR" },
     { name: "bill", type: "document", label: "Bill" },
   ],
-  configSchema: [
-    {
-      key: "department",
-      label: "Department",
-      type: "text",
-      defaultValue: "",
-    },
-    {
-      key: "vendor",
-      label: "Vendor",
-      type: "text",
-      defaultValue: "",
-    },
-    {
-      key: "urgency",
-      label: "Urgency",
-      type: "select",
-      options: [
-        { label: "Low", value: "low" },
-        { label: "Medium", value: "medium" },
-        { label: "High", value: "high" },
-      ],
-      defaultValue: "medium",
-    },
-  ],
-  defaultConfig: { department: "", vendor: "", urgency: "medium" },
+  configSchema: standardDocumentConfig,
+  defaultConfig: { documentNumber: "", status: "draft", notes: "", reference: "" },
   color: "bg-amber-600",
-  flowType: "process",
+  flowType: "document",
   documentType: "purchase-request",
 };
 
@@ -163,28 +125,10 @@ export const purchaseRequestNoBillNode: NodeDefinition = {
   icon: "\uD83D\uDCCB",
   inputs: [{ name: "requisition", type: "document", label: "Requisition" }],
   outputs: [{ name: "pr", type: "document", label: "PR" }],
-  configSchema: [
-    {
-      key: "department",
-      label: "Department",
-      type: "text",
-      defaultValue: "",
-    },
-    {
-      key: "urgency",
-      label: "Urgency",
-      type: "select",
-      options: [
-        { label: "Low", value: "low" },
-        { label: "Medium", value: "medium" },
-        { label: "High", value: "high" },
-      ],
-      defaultValue: "medium",
-    },
-  ],
-  defaultConfig: { department: "", urgency: "medium" },
+  configSchema: standardDocumentConfig,
+  defaultConfig: { documentNumber: "", status: "draft", notes: "", reference: "" },
   color: "bg-yellow-600",
-  flowType: "process",
+  flowType: "document",
   documentType: "purchase-request",
 };
 
@@ -196,22 +140,10 @@ export const paymentVoucherNode: NodeDefinition = {
   icon: "\uD83D\uDCB3",
   inputs: [{ name: "bill", type: "document", label: "Bill" }],
   outputs: [{ name: "payment", type: "document", label: "Payment" }],
-  configSchema: [
-    {
-      key: "method",
-      label: "Payment Method",
-      type: "select",
-      options: [
-        { label: "Bank Transfer", value: "bank" },
-        { label: "Cash", value: "cash" },
-        { label: "Check", value: "check" },
-      ],
-      defaultValue: "bank",
-    },
-  ],
-  defaultConfig: { method: "bank" },
+  configSchema: standardDocumentConfig,
+  defaultConfig: { documentNumber: "", status: "draft", notes: "", reference: "" },
   color: "bg-indigo-600",
-  flowType: "process",
+  flowType: "document",
   documentType: "payment-voucher",
 };
 
@@ -228,21 +160,8 @@ export const approvalNode: NodeDefinition = {
     { name: "approved", type: "document", label: "Approved" },
     { name: "rejected", type: "document", label: "Rejected" },
   ],
-  configSchema: [
-    {
-      key: "approver",
-      label: "Approver",
-      type: "text",
-      defaultValue: "",
-    },
-    {
-      key: "threshold",
-      label: "Threshold Amount",
-      type: "number",
-      defaultValue: 1000,
-    },
-  ],
-  defaultConfig: { approver: "", threshold: 1000 },
+  configSchema: standardDocumentConfig,
+  defaultConfig: { documentNumber: "", status: "draft", notes: "", reference: "" },
   color: "bg-teal-600",
   flowType: "decision",
   documentType: "approval",
@@ -256,30 +175,8 @@ export const reportNode: NodeDefinition = {
   icon: "\uD83D\uDCCA",
   inputs: [{ name: "data", type: "document", label: "Data" }],
   outputs: [{ name: "report", type: "document", label: "Report" }],
-  configSchema: [
-    {
-      key: "reportType",
-      label: "Report Type",
-      type: "select",
-      options: [
-        { label: "Cash Flow", value: "cashflow" },
-        { label: "Profit & Loss", value: "profitloss" },
-        { label: "Balance Sheet", value: "balance" },
-      ],
-      defaultValue: "cashflow",
-    },
-    {
-      key: "format",
-      label: "Format",
-      type: "select",
-      options: [
-        { label: "PDF", value: "pdf" },
-        { label: "Excel", value: "excel" },
-      ],
-      defaultValue: "pdf",
-    },
-  ],
-  defaultConfig: { reportType: "cashflow", format: "pdf" },
+  configSchema: standardDocumentConfig,
+  defaultConfig: { documentNumber: "", status: "draft", notes: "", reference: "" },
   color: "bg-rose-600",
   flowType: "output",
   documentType: "report",
@@ -293,23 +190,10 @@ export const debitNoteNode: NodeDefinition = {
   icon: "\uD83D\uDCC4",
   inputs: [{ name: "invoice", type: "document", label: "Invoice" }],
   outputs: [{ name: "debitNote", type: "document", label: "Debit Note" }],
-  configSchema: [
-    {
-      key: "reason",
-      label: "Reason",
-      type: "text",
-      defaultValue: "",
-    },
-    {
-      key: "amount",
-      label: "Amount",
-      type: "number",
-      defaultValue: 0,
-    },
-  ],
-  defaultConfig: { reason: "", amount: 0 },
+  configSchema: standardDocumentConfig,
+  defaultConfig: { documentNumber: "", status: "draft", notes: "", reference: "" },
   color: "bg-red-600",
-  flowType: "process",
+  flowType: "document",
   documentType: "debit-note",
 };
 
@@ -321,23 +205,10 @@ export const creditNoteNode: NodeDefinition = {
   icon: "\uD83D\uDCB8",
   inputs: [{ name: "invoice", type: "document", label: "Invoice" }],
   outputs: [{ name: "creditNote", type: "document", label: "Credit Note" }],
-  configSchema: [
-    {
-      key: "reason",
-      label: "Reason",
-      type: "text",
-      defaultValue: "",
-    },
-    {
-      key: "amount",
-      label: "Amount",
-      type: "number",
-      defaultValue: 0,
-    },
-  ],
-  defaultConfig: { reason: "", amount: 0 },
+  configSchema: standardDocumentConfig,
+  defaultConfig: { documentNumber: "", status: "draft", notes: "", reference: "" },
   color: "bg-pink-600",
-  flowType: "process",
+  flowType: "document",
   documentType: "credit-note",
 };
 

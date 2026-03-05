@@ -1,4 +1,39 @@
-import type { NodeDefinition } from "../types/index.ts";
+import type { NodeDefinition, ConfigFieldDefinition } from "../types/index.ts";
+
+// Standard document config schema for all document nodes
+const standardDocumentConfig: ConfigFieldDefinition[] = [
+  {
+    key: "documentNumber",
+    label: "Document Number",
+    type: "text",
+    defaultValue: "",
+  },
+  {
+    key: "status",
+    label: "Status",
+    type: "select",
+    options: [
+      { label: "Draft", value: "draft" },
+      { label: "Pending", value: "pending" },
+      { label: "Approved", value: "approved" },
+      { label: "Rejected", value: "rejected" },
+      { label: "Completed", value: "completed" },
+    ],
+    defaultValue: "draft",
+  },
+  {
+    key: "notes",
+    label: "Notes",
+    type: "textarea",
+    defaultValue: "",
+  },
+  {
+    key: "reference",
+    label: "Reference",
+    type: "text",
+    defaultValue: "",
+  },
+];
 
 export const salesOrderNode: NodeDefinition = {
   type: "sales-order",
@@ -8,23 +43,10 @@ export const salesOrderNode: NodeDefinition = {
   icon: "\uD83D\uDED2",
   inputs: [{ name: "quotation", type: "document", label: "Quotation" }],
   outputs: [{ name: "so", type: "document", label: "SO" }],
-  configSchema: [
-    {
-      key: "customer",
-      label: "Customer",
-      type: "text",
-      defaultValue: "",
-    },
-    {
-      key: "amount",
-      label: "Amount",
-      type: "number",
-      defaultValue: 0,
-    },
-  ],
-  defaultConfig: { customer: "", amount: 0 },
+  configSchema: standardDocumentConfig,
+  defaultConfig: { documentNumber: "", status: "draft", notes: "", reference: "" },
   color: "bg-green-600",
-  flowType: "process",
+  flowType: "document",
   documentType: "sales-order",
 };
 
@@ -36,23 +58,10 @@ export const salesQuotationNode: NodeDefinition = {
   icon: "\uD83D\uDCDD",
   inputs: [{ name: "inquiry", type: "document", label: "Inquiry" }],
   outputs: [{ name: "quotation", type: "document", label: "Quotation" }],
-  configSchema: [
-    {
-      key: "customer",
-      label: "Customer",
-      type: "text",
-      defaultValue: "",
-    },
-    {
-      key: "validDays",
-      label: "Valid (days)",
-      type: "number",
-      defaultValue: 30,
-    },
-  ],
-  defaultConfig: { customer: "", validDays: 30 },
+  configSchema: standardDocumentConfig,
+  defaultConfig: { documentNumber: "", status: "draft", notes: "", reference: "" },
   color: "bg-lime-600",
-  flowType: "process",
+  flowType: "document",
   documentType: "quotation",
 };
 
@@ -64,23 +73,10 @@ export const deliveryNoteNode: NodeDefinition = {
   icon: "\uD83D\uDE9A",
   inputs: [{ name: "so", type: "document", label: "SO" }],
   outputs: [{ name: "dn", type: "document", label: "DN" }],
-  configSchema: [
-    {
-      key: "address",
-      label: "Delivery Address",
-      type: "textarea",
-      defaultValue: "",
-    },
-    {
-      key: "carrier",
-      label: "Carrier",
-      type: "text",
-      defaultValue: "",
-    },
-  ],
-  defaultConfig: { address: "", carrier: "" },
+  configSchema: standardDocumentConfig,
+  defaultConfig: { documentNumber: "", status: "draft", notes: "", reference: "" },
   color: "bg-emerald-600",
-  flowType: "process",
+  flowType: "document",
   documentType: "delivery-note",
 };
 
@@ -92,28 +88,10 @@ export const salesReturnNode: NodeDefinition = {
   icon: "\uD83D\uDD04",
   inputs: [{ name: "dn", type: "document", label: "DN" }],
   outputs: [{ name: "return", type: "document", label: "Return" }],
-  configSchema: [
-    {
-      key: "reason",
-      label: "Return Reason",
-      type: "text",
-      defaultValue: "",
-    },
-    {
-      key: "refundMethod",
-      label: "Refund Method",
-      type: "select",
-      options: [
-        { label: "Credit Note", value: "credit-note" },
-        { label: "Cash Refund", value: "cash" },
-        { label: "Replacement", value: "replacement" },
-      ],
-      defaultValue: "credit-note",
-    },
-  ],
-  defaultConfig: { reason: "", refundMethod: "credit-note" },
+  configSchema: standardDocumentConfig,
+  defaultConfig: { documentNumber: "", status: "draft", notes: "", reference: "" },
   color: "bg-yellow-600",
-  flowType: "process",
+  flowType: "document",
   documentType: "sales-return",
 };
 
@@ -125,23 +103,10 @@ export const salesInvoiceNode: NodeDefinition = {
   icon: "\uD83E\uDDFE",
   inputs: [{ name: "dn", type: "document", label: "DN" }],
   outputs: [{ name: "invoice", type: "document", label: "Invoice" }],
-  configSchema: [
-    {
-      key: "paymentTerms",
-      label: "Payment Terms",
-      type: "select",
-      options: [
-        { label: "Net 15", value: "net15" },
-        { label: "Net 30", value: "net30" },
-        { label: "Net 60", value: "net60" },
-        { label: "COD", value: "cod" },
-      ],
-      defaultValue: "net30",
-    },
-  ],
-  defaultConfig: { paymentTerms: "net30" },
+  configSchema: standardDocumentConfig,
+  defaultConfig: { documentNumber: "", status: "draft", notes: "", reference: "" },
   color: "bg-teal-600",
-  flowType: "process",
+  flowType: "document",
   documentType: "sales-invoice",
 };
 

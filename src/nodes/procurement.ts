@@ -1,4 +1,39 @@
-import type { NodeDefinition } from "../types/index.ts";
+import type { NodeDefinition, ConfigFieldDefinition } from "../types/index.ts";
+
+// Standard document config schema for all document nodes
+const standardDocumentConfig: ConfigFieldDefinition[] = [
+  {
+    key: "documentNumber",
+    label: "Document Number",
+    type: "text",
+    defaultValue: "",
+  },
+  {
+    key: "status",
+    label: "Status",
+    type: "select",
+    options: [
+      { label: "Draft", value: "draft" },
+      { label: "Pending", value: "pending" },
+      { label: "Approved", value: "approved" },
+      { label: "Rejected", value: "rejected" },
+      { label: "Completed", value: "completed" },
+    ],
+    defaultValue: "draft",
+  },
+  {
+    key: "notes",
+    label: "Notes",
+    type: "textarea",
+    defaultValue: "",
+  },
+  {
+    key: "reference",
+    label: "Reference",
+    type: "text",
+    defaultValue: "",
+  },
+];
 
 export const purchaseOrderNode: NodeDefinition = {
   type: "purchase-order",
@@ -8,34 +43,10 @@ export const purchaseOrderNode: NodeDefinition = {
   icon: "\uD83D\uDCE6",
   inputs: [{ name: "pr", type: "document", label: "PR" }],
   outputs: [{ name: "po", type: "document", label: "PO" }],
-  configSchema: [
-    {
-      key: "vendor",
-      label: "Vendor",
-      type: "text",
-      defaultValue: "",
-    },
-    {
-      key: "currency",
-      label: "Currency",
-      type: "select",
-      options: [
-        { label: "THB", value: "THB" },
-        { label: "USD", value: "USD" },
-        { label: "EUR", value: "EUR" },
-      ],
-      defaultValue: "THB",
-    },
-    {
-      key: "amount",
-      label: "Amount",
-      type: "number",
-      defaultValue: 0,
-    },
-  ],
-  defaultConfig: { vendor: "", currency: "THB", amount: 0 },
+  configSchema: standardDocumentConfig,
+  defaultConfig: { documentNumber: "", status: "draft", notes: "", reference: "" },
   color: "bg-blue-700",
-  flowType: "process",
+  flowType: "document",
   documentType: "purchase-order",
 };
 
@@ -47,23 +58,10 @@ export const goodsReceiptNoteNode: NodeDefinition = {
   icon: "\uD83D\uDCE5",
   inputs: [{ name: "po", type: "document", label: "PO" }],
   outputs: [{ name: "grn", type: "document", label: "GRN" }],
-  configSchema: [
-    {
-      key: "warehouse",
-      label: "Warehouse",
-      type: "text",
-      defaultValue: "",
-    },
-    {
-      key: "inspected",
-      label: "Quality Inspected",
-      type: "boolean",
-      defaultValue: false,
-    },
-  ],
-  defaultConfig: { warehouse: "", inspected: false },
+  configSchema: standardDocumentConfig,
+  defaultConfig: { documentNumber: "", status: "draft", notes: "", reference: "" },
   color: "bg-cyan-600",
-  flowType: "process",
+  flowType: "document",
   documentType: "goods-receipt-note",
 };
 
@@ -75,23 +73,10 @@ export const vendorQuotationNode: NodeDefinition = {
   icon: "\uD83D\uDCC3",
   inputs: [{ name: "rfq", type: "document", label: "RFQ" }],
   outputs: [{ name: "quotation", type: "document", label: "Quotation" }],
-  configSchema: [
-    {
-      key: "vendor",
-      label: "Vendor",
-      type: "text",
-      defaultValue: "",
-    },
-    {
-      key: "validUntil",
-      label: "Valid Until",
-      type: "text",
-      defaultValue: "",
-    },
-  ],
-  defaultConfig: { vendor: "", validUntil: "" },
+  configSchema: standardDocumentConfig,
+  defaultConfig: { documentNumber: "", status: "draft", notes: "", reference: "" },
   color: "bg-teal-600",
-  flowType: "process",
+  flowType: "document",
   documentType: "vendor-quotation",
 };
 
@@ -103,23 +88,10 @@ export const requestForQuotationNode: NodeDefinition = {
   icon: "\uD83D\uDD0D",
   inputs: [{ name: "pr", type: "document", label: "PR" }],
   outputs: [{ name: "rfq", type: "document", label: "RFQ" }],
-  configSchema: [
-    {
-      key: "vendors",
-      label: "Vendor List",
-      type: "textarea",
-      defaultValue: "",
-    },
-    {
-      key: "deadline",
-      label: "Response Deadline",
-      type: "text",
-      defaultValue: "",
-    },
-  ],
-  defaultConfig: { vendors: "", deadline: "" },
+  configSchema: standardDocumentConfig,
+  defaultConfig: { documentNumber: "", status: "draft", notes: "", reference: "" },
   color: "bg-sky-600",
-  flowType: "process",
+  flowType: "document",
   documentType: "request-for-quotation",
 };
 
@@ -131,17 +103,10 @@ export const goodsReturnNode: NodeDefinition = {
   icon: "\uD83D\uDD04",
   inputs: [{ name: "grn", type: "document", label: "GRN" }],
   outputs: [{ name: "return", type: "document", label: "Return" }],
-  configSchema: [
-    {
-      key: "reason",
-      label: "Return Reason",
-      type: "text",
-      defaultValue: "",
-    },
-  ],
-  defaultConfig: { reason: "" },
+  configSchema: standardDocumentConfig,
+  defaultConfig: { documentNumber: "", status: "draft", notes: "", reference: "" },
   color: "bg-orange-600",
-  flowType: "process",
+  flowType: "document",
   documentType: "goods-return",
 };
 
