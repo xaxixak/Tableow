@@ -230,17 +230,30 @@ function GridHeader({ stages }: GridHeaderProps) {
             return (
               <div
                 key={stage.id}
+                draggable
+                onDragStart={(e) => handleStageDragStart(e, stage.id)}
+                onDragOver={(e) => handleStageDragOver(e, stage.id)}
+                onDragLeave={handleStageDragLeave}
+                onDrop={(e) => handleStageDrop(e, stage.id)}
+                onDragEnd={handleStageDragEnd}
                 className={cn(
-                  "flex items-center justify-center px-2 py-1.5",
+                  "flex items-center justify-center gap-1 px-2 py-1.5 group/parent",
                   "bg-slate-100 border-r border-b border-slate-300",
-                  "text-xs font-semibold text-slate-500 uppercase tracking-wider"
+                  "text-xs font-semibold text-slate-500 uppercase tracking-wider",
+                  "cursor-grab active:cursor-grabbing",
+                  dragOverStageId === stage.id && "border-l-2 border-l-blue-500 bg-blue-50"
                 )}
                 style={{
                   gridColumn: `span ${span}`,
                 }}
                 onContextMenu={(e) => handleContextMenu(e, stage.id)}
               >
-                {children ? stage.label : ""}
+                {children && (
+                  <>
+                    <GripHorizontal className="w-3 h-3 text-slate-300 shrink-0 opacity-0 group-hover/parent:opacity-100 transition-opacity" />
+                    {stage.label}
+                  </>
+                )}
               </div>
             );
           })}
