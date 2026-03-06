@@ -6,6 +6,7 @@ import {
   Background,
   BackgroundVariant,
   type NodeMouseHandler,
+  type EdgeMouseHandler,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { useWorkflowStore } from "../../store/workflowStore.ts";
@@ -21,6 +22,7 @@ export default function WorkflowCanvas() {
   const onConnect = useWorkflowStore((s) => s.onConnect);
   const addNode = useWorkflowStore((s) => s.addNode);
   const selectNode = useWorkflowStore((s) => s.selectNode);
+  const selectEdge = useWorkflowStore((s) => s.selectEdge);
   const registryVersion = useWorkflowStore((s) => s.registryVersion);
 
   const nodeTypes = useMemo(() => buildNodeTypes(), [registryVersion]);
@@ -58,9 +60,17 @@ export default function WorkflowCanvas() {
     [selectNode]
   );
 
+  const onEdgeClick: EdgeMouseHandler = useCallback(
+    (_event, edge) => {
+      selectEdge(edge.id);
+    },
+    [selectEdge]
+  );
+
   const onPaneClick = useCallback(() => {
     selectNode(null);
-  }, [selectNode]);
+    selectEdge(null);
+  }, [selectNode, selectEdge]);
 
   return (
     <div className="w-full h-full">
@@ -73,6 +83,7 @@ export default function WorkflowCanvas() {
         onDragOver={onDragOver}
         onDrop={onDrop}
         onNodeClick={onNodeClick}
+        onEdgeClick={onEdgeClick}
         onPaneClick={onPaneClick}
         nodeTypes={nodeTypes}
         snapToGrid
@@ -81,6 +92,7 @@ export default function WorkflowCanvas() {
         defaultEdgeOptions={{
           type: "smoothstep",
           animated: true,
+          interactionWidth: 20,
         }}
         proOptions={{ hideAttribution: true }}
       >
