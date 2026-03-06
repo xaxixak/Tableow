@@ -1,5 +1,5 @@
-import { memo, useState, useCallback, useMemo, useRef, useEffect } from "react";
-import { Plus, Trash2, Edit3 } from "lucide-react";
+import { memo, useState, useCallback, useMemo, useRef, useEffect, type DragEvent } from "react";
+import { Plus, Trash2, Edit3, GripHorizontal } from "lucide-react";
 import { useWorkflowStore } from "../../store/workflowStore.ts";
 import { cn } from "../../lib/utils.ts";
 import type { StageDefinition } from "../../types/grid.ts";
@@ -77,8 +77,10 @@ function GridHeader({ stages }: GridHeaderProps) {
   const updateStage = useWorkflowStore((s) => s.updateStage);
   const removeStage = useWorkflowStore((s) => s.removeStage);
   const addStage = useWorkflowStore((s) => s.addStage);
+  const reorderStages = useWorkflowStore((s) => s.reorderStages);
 
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
+  const [dragOverStageId, setDragOverStageId] = useState<string | null>(null);
 
   // Build hierarchical stage structure
   const { parentStages, childrenByParent, topLevelStages } = useMemo(() => {
@@ -165,6 +167,46 @@ function GridHeader({ stages }: GridHeaderProps) {
     closeContextMenu();
   }, [contextMenu, stages, addStage, closeContextMenu]);
 
+  // Stage drag-to-reorder handlers
+  const handleStageDragStart = useCallback(
+    (e: DragEvent<HTMLDivElement>, stageId: string) => {
+      e.dataTransfer.setData("application/grid-stage-reorder", stageId);
+      e.dataTransfer.effectAllowed = "move";
+    },
+    []
+  );
+
+  const handleStageDragOver = useCallback(
+    (e: DragEvent<HTMLDivElement>, stageId: string) => {
+      if (e.dataTransfer.types.includes("application/grid-stage-reorder")) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+        setDragOverStageId(stageId);
+      }
+    },
+    []
+  );
+
+  const handleStageDragLeave = useCallback(() => {
+    setDragOverStageId(null);
+  }, []);
+
+  const handleStageDrop = useCallback(
+    (e: DragEvent<HTMLDivElement>, targetId: string) => {
+      e.preventDefault();
+      setDragOverStageId(null);
+      const sourceId = e.dataTransfer.getData("application/grid-stage-reorder");
+      if (sourceId && sourceId !== targetId) {
+        reorderStages(sourceId, targetId);
+      }
+    },
+    [reorderStages]
+  );
+
+  const handleStageDragEnd = useCallback(() => {
+    setDragOverStageId(null);
+  }, []);
+
   // Close context menu on click outside
   useEffect(() => {
     if (!contextMenu) return;
@@ -221,13 +263,21 @@ function GridHeader({ stages }: GridHeaderProps) {
         {leafColumns.map((stage) => (
           <div
             key={stage.id}
+            draggable
+            onDragStart={(e) => handleStageDragStart(e, stage.id)}
+            onDragOver={(e) => handleStageDragOver(e, stage.id)}
+            onDragLeave={handleStageDragLeave}
+            onDrop={(e) => handleStageDrop(e, stage.id)}
+            onDragEnd={handleStageDragEnd}
             className={cn(
-              "flex items-center justify-center px-2 py-2",
+              "flex items-center justify-center gap-1 px-2 py-2 group/stage",
               "bg-slate-100 border-r border-b border-slate-300",
-              "min-w-[150px]"
+              "min-w-[150px] cursor-grab active:cursor-grabbing",
+              dragOverStageId === stage.id && "border-l-2 border-l-blue-500 bg-blue-50"
             )}
             onContextMenu={(e) => handleContextMenu(e, stage.id)}
           >
+            <GripHorizontal className="w-3 h-3 text-slate-300 shrink-0 opacity-0 group-hover/stage:opacity-100 transition-opacity" />
             <InlineEdit
               value={stage.label}
               onCommit={(newLabel) => updateStage(stage.id, { label: newLabel })}

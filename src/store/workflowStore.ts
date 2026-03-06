@@ -97,6 +97,8 @@ export interface WorkflowState {
   addStage: (stage: Omit<StageDefinition, 'id'>) => void
   removeStage: (id: string) => void
   updateStage: (id: string, updates: Partial<StageDefinition>) => void
+  reorderLanes: (sourceId: string, targetId: string) => void
+  reorderStages: (sourceId: string, targetId: string) => void
   placeNode: (nodeId: string, laneId: string, stageId: string) => void
   unplaceNode: (nodeId: string) => void
 
@@ -1082,6 +1084,52 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       stages: state.gridConfig.stages.map((s) =>
         s.id === id ? { ...s, ...updates } : s,
       ),
+    }
+    set({
+      gridConfig: newGridConfig,
+      ...pushHistory({ ...state, gridConfig: newGridConfig }),
+    })
+  },
+
+  reorderLanes: (sourceId, targetId) => {
+    if (sourceId === targetId) return
+    const state = get()
+    const sourceLane = state.gridConfig.lanes.find((l) => l.id === sourceId)
+    const targetLane = state.gridConfig.lanes.find((l) => l.id === targetId)
+    if (!sourceLane || !targetLane) return
+    // Only swap siblings (same parent)
+    if (sourceLane.parentId !== targetLane.parentId) return
+
+    const newGridConfig = {
+      ...state.gridConfig,
+      lanes: state.gridConfig.lanes.map((l) => {
+        if (l.id === sourceId) return { ...l, order: targetLane.order }
+        if (l.id === targetId) return { ...l, order: sourceLane.order }
+        return l
+      }),
+    }
+    set({
+      gridConfig: newGridConfig,
+      ...pushHistory({ ...state, gridConfig: newGridConfig }),
+    })
+  },
+
+  reorderStages: (sourceId, targetId) => {
+    if (sourceId === targetId) return
+    const state = get()
+    const sourceStage = state.gridConfig.stages.find((s) => s.id === sourceId)
+    const targetStage = state.gridConfig.stages.find((s) => s.id === targetId)
+    if (!sourceStage || !targetStage) return
+    // Only swap siblings (same parent)
+    if (sourceStage.parentId !== targetStage.parentId) return
+
+    const newGridConfig = {
+      ...state.gridConfig,
+      stages: state.gridConfig.stages.map((s) => {
+        if (s.id === sourceId) return { ...s, order: targetStage.order }
+        if (s.id === targetId) return { ...s, order: sourceStage.order }
+        return s
+      }),
     }
     set({
       gridConfig: newGridConfig,

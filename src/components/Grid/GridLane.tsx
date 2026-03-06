@@ -1,5 +1,5 @@
-import { memo, useState, useCallback, useMemo, useRef, useEffect } from "react";
-import { ChevronDown, ChevronRight, Plus, Trash2, Edit3, Palette } from "lucide-react";
+import { memo, useState, useCallback, useMemo, useRef, useEffect, type DragEvent } from "react";
+import { ChevronDown, ChevronRight, Plus, Trash2, Edit3, Palette, GripVertical } from "lucide-react";
 import { useWorkflowStore } from "../../store/workflowStore.ts";
 import { cn } from "../../lib/utils.ts";
 import type { LaneDefinition, StageDefinition, GridPlacement } from "../../types/grid.ts";
@@ -40,11 +40,13 @@ function GridLane({
   const updateLane = useWorkflowStore((s) => s.updateLane);
   const removeLane = useWorkflowStore((s) => s.removeLane);
   const addLane = useWorkflowStore((s) => s.addLane);
+  const reorderLanes = useWorkflowStore((s) => s.reorderLanes);
 
   const [collapsed, setCollapsed] = useState(false);
   const [editing, setEditing] = useState(false);
   const [editValue, setEditValue] = useState(lane.label);
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
+  const [isDragOver, setIsDragOver] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const hasChildren = childLanes.length > 0;
@@ -129,6 +131,46 @@ function GridLane({
     [lane.id, updateLane, closeContextMenu]
   );
 
+  // Lane drag-to-reorder handlers
+  const handleLaneDragStart = useCallback(
+    (e: DragEvent<HTMLDivElement>) => {
+      e.dataTransfer.setData("application/grid-lane-reorder", lane.id);
+      e.dataTransfer.effectAllowed = "move";
+    },
+    [lane.id]
+  );
+
+  const handleLaneDragOver = useCallback(
+    (e: DragEvent<HTMLDivElement>) => {
+      if (e.dataTransfer.types.includes("application/grid-lane-reorder")) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+        setIsDragOver(true);
+      }
+    },
+    []
+  );
+
+  const handleLaneDragLeave = useCallback(() => {
+    setIsDragOver(false);
+  }, []);
+
+  const handleLaneDrop = useCallback(
+    (e: DragEvent<HTMLDivElement>) => {
+      e.preventDefault();
+      setIsDragOver(false);
+      const sourceId = e.dataTransfer.getData("application/grid-lane-reorder");
+      if (sourceId && sourceId !== lane.id) {
+        reorderLanes(sourceId, lane.id);
+      }
+    },
+    [lane.id, reorderLanes]
+  );
+
+  const handleLaneDragEnd = useCallback(() => {
+    setIsDragOver(false);
+  }, []);
+
   // Close context menu on click outside
   useEffect(() => {
     if (!contextMenu) return;
@@ -143,17 +185,27 @@ function GridLane({
     <>
       {/* This lane's row */}
       <div className="contents" role="row">
-        {/* Lane label cell (sticky left) */}
+        {/* Lane label cell (sticky left, draggable for reorder) */}
         <div
+          draggable={!editing}
+          onDragStart={handleLaneDragStart}
+          onDragOver={handleLaneDragOver}
+          onDragLeave={handleLaneDragLeave}
+          onDrop={handleLaneDrop}
+          onDragEnd={handleLaneDragEnd}
           className={cn(
-            "sticky left-0 z-10 flex items-center gap-1 px-2 py-2",
+            "sticky left-0 z-10 flex items-center gap-1 px-2 py-2 group/lane",
             "bg-white border-r border-b border-slate-200",
-            "min-w-[120px] select-none",
-            laneColorClass
+            "min-w-[120px] select-none cursor-grab active:cursor-grabbing",
+            laneColorClass,
+            isDragOver && "border-t-2 border-t-blue-500 bg-blue-50"
           )}
           style={{ paddingLeft: `${8 + depth * 16}px` }}
           onContextMenu={handleContextMenu}
         >
+          {/* Drag handle */}
+          <GripVertical className="w-3 h-3 text-slate-300 shrink-0 opacity-0 group-hover/lane:opacity-100 transition-opacity" />
+
           {/* Expand/collapse toggle */}
           {hasChildren ? (
             <button
