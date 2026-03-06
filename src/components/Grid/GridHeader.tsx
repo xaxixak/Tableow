@@ -78,9 +78,13 @@ function GridHeader({ stages }: GridHeaderProps) {
   const removeStage = useWorkflowStore((s) => s.removeStage);
   const addStage = useWorkflowStore((s) => s.addStage);
   const reorderStages = useWorkflowStore((s) => s.reorderStages);
+  const laneColumnWidth = useWorkflowStore((s) => s.gridConfig.laneColumnWidth);
+  const setLaneColumnWidth = useWorkflowStore((s) => s.setLaneColumnWidth);
 
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [dragOverStageId, setDragOverStageId] = useState<string | null>(null);
+  const [resizing, setResizing] = useState<{ stageId: string; startX: number; startWidth: number } | null>(null);
+  const [resizingLaneCol, setResizingLaneCol] = useState<{ startX: number; startWidth: number } | null>(null);
 
   // Build hierarchical stage structure
   const { parentStages, childrenByParent, topLevelStages } = useMemo(() => {
@@ -207,6 +211,62 @@ function GridHeader({ stages }: GridHeaderProps) {
     setDragOverStageId(null);
   }, []);
 
+  // Column resize handlers
+  const handleResizeStart = useCallback(
+    (e: React.MouseEvent, stageId: string, currentWidth: number) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setResizing({ stageId, startX: e.clientX, startWidth: currentWidth });
+    },
+    []
+  );
+
+  useEffect(() => {
+    if (!resizing) return;
+    const handleMouseMove = (e: MouseEvent) => {
+      const delta = e.clientX - resizing.startX;
+      const newWidth = Math.max(80, resizing.startWidth + delta);
+      updateStage(resizing.stageId, { width: newWidth });
+    };
+    const handleMouseUp = () => {
+      setResizing(null);
+    };
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
+    return () => {
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [resizing, updateStage]);
+
+  // Lane column resize handlers
+  const handleLaneColResizeStart = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setResizingLaneCol({ startX: e.clientX, startWidth: laneColumnWidth ?? 120 });
+    },
+    [laneColumnWidth]
+  );
+
+  useEffect(() => {
+    if (!resizingLaneCol) return;
+    const handleMouseMove = (e: MouseEvent) => {
+      const delta = e.clientX - resizingLaneCol.startX;
+      const newWidth = Math.max(80, resizingLaneCol.startWidth + delta);
+      setLaneColumnWidth(newWidth);
+    };
+    const handleMouseUp = () => {
+      setResizingLaneCol(null);
+    };
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
+    return () => {
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [resizingLaneCol, setLaneColumnWidth]);
+
   // Close context menu on click outside
   useEffect(() => {
     if (!contextMenu) return;
@@ -221,7 +281,16 @@ function GridHeader({ stages }: GridHeaderProps) {
       {hasHierarchy && (
         <div className="contents" role="row">
           {/* Empty cell for lane label column */}
-          <div className="sticky left-0 z-20 bg-slate-100 border-r border-b border-slate-300" />
+          <div className="sticky left-0 z-20 bg-slate-100 border-r border-b border-slate-300">
+            <div
+              onMouseDown={handleLaneColResizeStart}
+              className={cn(
+                "absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize z-10",
+                "hover:bg-blue-400/50",
+                resizingLaneCol && "bg-blue-500/60"
+              )}
+            />
+          </div>
 
           {topLevelStages.map((stage) => {
             const children = childrenByParent.get(stage.id);
@@ -271,21 +340,30 @@ function GridHeader({ stages }: GridHeaderProps) {
           )}
         >
           Lane
+          {/* Resize handle for lane column */}
+          <div
+            onMouseDown={handleLaneColResizeStart}
+            className={cn(
+              "absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize z-10",
+              "hover:bg-blue-400/50",
+              resizingLaneCol && "bg-blue-500/60"
+            )}
+          />
         </div>
 
         {leafColumns.map((stage) => (
           <div
             key={stage.id}
-            draggable
+            draggable={!resizing}
             onDragStart={(e) => handleStageDragStart(e, stage.id)}
             onDragOver={(e) => handleStageDragOver(e, stage.id)}
             onDragLeave={handleStageDragLeave}
             onDrop={(e) => handleStageDrop(e, stage.id)}
             onDragEnd={handleStageDragEnd}
             className={cn(
-              "flex items-center justify-center gap-1 px-2 py-2 group/stage",
+              "relative flex items-center justify-center gap-1 px-2 py-2 group/stage",
               "bg-slate-100 border-r border-b border-slate-300",
-              "min-w-[150px] cursor-grab active:cursor-grabbing",
+              "min-w-[80px] cursor-grab active:cursor-grabbing",
               dragOverStageId === stage.id && "border-l-2 border-l-blue-500 bg-blue-50"
             )}
             onContextMenu={(e) => handleContextMenu(e, stage.id)}
@@ -294,6 +372,15 @@ function GridHeader({ stages }: GridHeaderProps) {
             <InlineEdit
               value={stage.label}
               onCommit={(newLabel) => updateStage(stage.id, { label: newLabel })}
+            />
+            {/* Resize handle */}
+            <div
+              onMouseDown={(e) => handleResizeStart(e, stage.id, stage.width ?? 150)}
+              className={cn(
+                "absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize z-10",
+                "hover:bg-blue-400/50",
+                resizing?.stageId === stage.id && "bg-blue-500/60"
+              )}
             />
           </div>
         ))}

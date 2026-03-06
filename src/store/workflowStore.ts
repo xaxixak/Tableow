@@ -99,6 +99,7 @@ export interface WorkflowState {
   updateStage: (id: string, updates: Partial<StageDefinition>) => void
   reorderLanes: (sourceId: string, targetId: string) => void
   reorderStages: (sourceId: string, targetId: string) => void
+  setLaneColumnWidth: (width: number) => void
   placeNode: (nodeId: string, laneId: string, stageId: string) => void
   unplaceNode: (nodeId: string) => void
 
@@ -1135,6 +1136,12 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       gridConfig: newGridConfig,
       ...pushHistory({ ...state, gridConfig: newGridConfig }),
     })
+  },
+
+  setLaneColumnWidth: (width) => {
+    const state = get()
+    const newGridConfig = { ...state.gridConfig, laneColumnWidth: Math.max(80, width) }
+    set({ gridConfig: newGridConfig })
   },
 
   placeNode: (nodeId, laneId, stageId) => {

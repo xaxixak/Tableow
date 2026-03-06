@@ -65,12 +65,19 @@ export default function GridView() {
     [lanes]
   );
 
+  const laneColumnWidth = gridConfig.laneColumnWidth;
+
   // Grid template: lane-label column + one column per leaf stage
   const gridTemplateColumns = useMemo(() => {
-    const labelCol = "minmax(120px, auto)";
-    const stageCols = leafStages.map(() => "minmax(150px, 1fr)").join(" ");
+    const labelCol = laneColumnWidth ? `${laneColumnWidth}px` : "minmax(120px, auto)";
+    const stageCols = leafStages
+      .map((s) => {
+        const w = s.width;
+        return w ? `${w}px` : "minmax(150px, 1fr)";
+      })
+      .join(" ");
     return `${labelCol} ${stageCols}`;
-  }, [leafStages]);
+  }, [leafStages, laneColumnWidth]);
 
   const handleAddLane = useCallback(() => {
     const name = window.prompt("Lane name:");

@@ -12,6 +12,8 @@ import {
   ChevronDown,
   Moon,
   Sun,
+  Undo2,
+  Redo2,
 } from "lucide-react";
 import { useWorkflowStore } from "../../store/workflowStore.ts";
 import type { Workflow } from "../../types/index.ts";
@@ -31,6 +33,12 @@ export default function Toolbar() {
   const getRecentSaves = useWorkflowStore((s) => s.getRecentSaves);
   const darkMode = useWorkflowStore((s) => s.darkMode);
   const toggleDarkMode = useWorkflowStore((s) => s.toggleDarkMode);
+  const undo = useWorkflowStore((s) => s.undo);
+  const redo = useWorkflowStore((s) => s.redo);
+  const historyIndex = useWorkflowStore((s) => s.historyIndex);
+  const historyLength = useWorkflowStore((s) => s.history.length);
+  const canUndoNow = historyIndex > 0;
+  const canRedoNow = historyIndex < historyLength - 1;
 
   const [editingName, setEditingName] = useState(false);
   const [nameValue, setNameValue] = useState(metadata.name);
@@ -129,6 +137,26 @@ export default function Toolbar() {
     updateMetadata({ name: trimmed });
   }, [nameValue, updateMetadata]);
 
+  // Keyboard shortcuts for undo/redo
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "z" && !e.shiftKey) {
+        e.preventDefault();
+        undo();
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === "z" && e.shiftKey) {
+        e.preventDefault();
+        redo();
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === "y") {
+        e.preventDefault();
+        redo();
+      }
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [undo, redo]);
+
   // Close recent dropdown on click outside
   useEffect(() => {
     if (!showRecent) return;
@@ -225,6 +253,36 @@ export default function Toolbar() {
       >
         {darkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
       </button>
+
+      {/* Undo/Redo */}
+      <div className="flex items-center gap-0.5">
+        <button
+          onClick={undo}
+          disabled={!canUndoNow}
+          className={cn(
+            "flex items-center justify-center w-8 h-8 rounded-md transition-colors",
+            canUndoNow
+              ? "text-slate-500 hover:text-slate-700 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-zinc-700"
+              : "text-slate-300 dark:text-zinc-600 cursor-not-allowed"
+          )}
+          title="Undo (Ctrl+Z)"
+        >
+          <Undo2 className="w-4 h-4" />
+        </button>
+        <button
+          onClick={redo}
+          disabled={!canRedoNow}
+          className={cn(
+            "flex items-center justify-center w-8 h-8 rounded-md transition-colors",
+            canRedoNow
+              ? "text-slate-500 hover:text-slate-700 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-zinc-700"
+              : "text-slate-300 dark:text-zinc-600 cursor-not-allowed"
+          )}
+          title="Redo (Ctrl+Shift+Z)"
+        >
+          <Redo2 className="w-4 h-4" />
+        </button>
+      </div>
 
       {/* Spacer */}
       <div className="flex-1" />

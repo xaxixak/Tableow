@@ -13,6 +13,8 @@ export interface StageDefinition {
   label: string
   parentId?: string
   order: number
+  /** Column width in pixels (default: 150) */
+  width?: number
 }
 
 /** Assignment of a node to a lane×stage cell */
@@ -27,4 +29,6 @@ export interface GridConfig {
   lanes: LaneDefinition[]
   stages: StageDefinition[]
   placements: GridPlacement[]
+  /** Width of the lane label column in pixels (default: 120) */
+  laneColumnWidth?: number
 }
