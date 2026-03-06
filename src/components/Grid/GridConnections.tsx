@@ -114,6 +114,7 @@ function GridConnections() {
 
         const isSelected = selectedEdgeId === edge.id;
         const edgeLabel = edge.data?.label || edge.data?.number || "";
+        const stepCount = edge.data?.subSteps?.length ?? 0;
 
         // Source: right edge center
         const sx = sourcePos.x + sourcePos.width;
@@ -173,6 +174,30 @@ function GridConnections() {
               >
                 {edgeLabel}
               </text>
+            )}
+            {/* Step count badge */}
+            {stepCount > 0 && (
+              <g style={{ pointerEvents: "none" }}>
+                <circle
+                  cx={labelX + (edgeLabel ? 20 : 0)}
+                  cy={labelY - 12}
+                  r={8}
+                  fill="#f59e0b"
+                  stroke="white"
+                  strokeWidth={1.5}
+                />
+                <text
+                  x={labelX + (edgeLabel ? 20 : 0)}
+                  y={labelY - 8}
+                  textAnchor="middle"
+                  fontSize="9"
+                  fontWeight="bold"
+                  fill="white"
+                  style={{ userSelect: "none" }}
+                >
+                  {stepCount}
+                </text>
+              </g>
             )}
           </g>
         );

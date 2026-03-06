@@ -1,7 +1,8 @@
 import { useMemo, useCallback, useState } from "react";
-import { Trash2, X } from "lucide-react";
+import { Trash2, X, ListOrdered } from "lucide-react";
 import { useWorkflowStore } from "../../store/workflowStore.ts";
 import { cn } from "../../lib/utils.ts";
+import { EdgeDetailModal } from "../Modal/EdgeDetailModal";
 
 export function EdgePropertiesPanel() {
   const selectedEdgeId = useWorkflowStore((s) => s.selectedEdgeId);
@@ -18,6 +19,7 @@ export function EdgePropertiesPanel() {
 
   const [label, setLabel] = useState(selectedEdge?.data?.label || "");
   const [description, setDescription] = useState(selectedEdge?.data?.description || "");
+  const [detailModalOpen, setDetailModalOpen] = useState(false);
 
   // Update local state when selected edge changes
   useMemo(() => {
@@ -161,6 +163,34 @@ export function EdgePropertiesPanel() {
             />
           </div>
         </div>
+
+        {/* Sub-Steps / Detail */}
+        <div className="px-4 py-3 border-t border-slate-200 dark:border-zinc-700">
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-2">
+            Detail Steps
+          </h3>
+          {(selectedEdge.data?.subSteps?.length ?? 0) > 0 ? (
+            <p className="text-xs text-slate-600 dark:text-slate-300 mb-2">
+              {selectedEdge.data!.subSteps!.length} intermediate step{selectedEdge.data!.subSteps!.length !== 1 ? "s" : ""} defined
+            </p>
+          ) : (
+            <p className="text-xs text-slate-400 dark:text-zinc-500 mb-2">
+              No intermediate steps — direct connection
+            </p>
+          )}
+          <button
+            onClick={() => setDetailModalOpen(true)}
+            className={cn(
+              "flex items-center gap-2 w-full px-3 py-2 text-sm font-medium rounded-md",
+              "bg-slate-50 text-slate-700 hover:bg-slate-100 border border-slate-200",
+              "dark:bg-zinc-800 dark:text-slate-200 dark:hover:bg-zinc-700 dark:border-zinc-600",
+              "transition-colors"
+            )}
+          >
+            <ListOrdered className="w-4 h-4" />
+            Edit Detail
+          </button>
+        </div>
       </div>
 
       {/* Footer - Delete Button */}
@@ -178,6 +208,15 @@ export function EdgePropertiesPanel() {
           Delete Connection
         </button>
       </div>
+
+      {/* Edge Detail Modal */}
+      {selectedEdgeId && (
+        <EdgeDetailModal
+          isOpen={detailModalOpen}
+          onClose={() => setDetailModalOpen(false)}
+          edgeId={selectedEdgeId}
+        />
+      )}
     </div>
   );
 }

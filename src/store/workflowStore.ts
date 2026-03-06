@@ -11,6 +11,7 @@ import type {
   WorkflowNode,
   WorkflowEdge,
   WorkflowNodeData,
+  EdgeSubStep,
   Workflow,
   WorkflowMetadata,
   GridConfig,
@@ -168,7 +169,7 @@ export interface WorkflowState {
   selectedEdgeId: string | null
   updateEdge: (
     id: string,
-    data: Partial<{ label: string; description: string; properties: Record<string, unknown> }>
+    data: Partial<{ label: string; description: string; properties: Record<string, unknown>; subSteps: EdgeSubStep[] }>
   ) => void
 
   // Workflow operations
@@ -1387,7 +1388,9 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       const updatedData = { ...edge.data, ...data }
       // Update top-level label for React Flow canvas display
       // Show custom label if set, otherwise show edge number
-      const displayLabel = updatedData.label || updatedData.number || ''
+      const baseName = updatedData.label || updatedData.number || ''
+      const stepCount = updatedData.subSteps?.length ?? 0
+      const displayLabel = stepCount > 0 ? `${baseName} (${stepCount} steps)` : baseName
 
       return {
         ...edge,

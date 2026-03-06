@@ -27,6 +27,14 @@ export interface WorkflowNodeData {
  */
 export type WorkflowNode = Node<WorkflowNodeData>
 
+/** An intermediate step inside an edge sub-workflow */
+export interface EdgeSubStep {
+  id: string
+  label: string
+  description?: string
+  order: number
+}
+
 /**
  * A WorkflowEdge is a React Flow Edge with optional metadata.
  */
@@ -39,6 +47,8 @@ export type WorkflowEdge = Edge<{
   description?: string
   /** Custom edge properties for business logic */
   properties?: Record<string, unknown>
+  /** Detailed sub-steps within this connection */
+  subSteps?: EdgeSubStep[]
 }>
 
 /**

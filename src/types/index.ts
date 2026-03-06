@@ -8,6 +8,7 @@ export type {
 } from './node.ts'
 
 export type {
+  EdgeSubStep,
   WorkflowNodeData,
   WorkflowNode,
   WorkflowEdge,
