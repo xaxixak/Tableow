@@ -129,6 +129,10 @@ function NodePaletteItem({
 }) {
   const onDragStart = (event: DragEvent<HTMLDivElement>) => {
     event.dataTransfer.setData("application/reactflow-type", definition.type);
+    // Also set palette-move data so categories can accept node reordering
+    if (isCustom) {
+      event.dataTransfer.setData("application/palette-node-move", definition.type);
+    }
     event.dataTransfer.effectAllowed = "move";
   };
 
@@ -330,6 +334,7 @@ function EditNodeModal({
   onClose: () => void;
 }) {
   const updateCustomNodeType = useWorkflowStore((s) => s.updateCustomNodeType);
+  const customCategories = useWorkflowStore((s) => s.customCategories);
   const currentBase = definition
     ? definition.inputs.length === 0 ? "start"
       : definition.outputs.length === 0 ? "output"
@@ -341,6 +346,7 @@ function EditNodeModal({
   const [description, setDescription] = useState(definition?.description ?? "");
   const [icon, setIcon] = useState(definition?.icon ?? ICON_PRESETS[0]);
   const [baseType, setBaseType] = useState(currentBase);
+  const [category, setCategory] = useState(definition?.category ?? "");
 
   // Sync form when definition changes
   useEffect(() => {
@@ -348,6 +354,7 @@ function EditNodeModal({
       setLabel(definition.label);
       setDescription(definition.description ?? "");
       setIcon(definition.icon ?? ICON_PRESETS[0]);
+      setCategory(definition.category);
       const base = definition.inputs.length === 0 ? "start"
         : definition.outputs.length === 0 ? "output"
         : definition.outputs.length >= 2 ? "decision"
@@ -365,10 +372,11 @@ function EditNodeModal({
         description: description.trim() || undefined,
         icon,
         baseType: baseType as "process" | "decision" | "start" | "output",
+        category,
       });
       onClose();
     },
-    [label, description, icon, baseType, definition, updateCustomNodeType, onClose]
+    [label, description, icon, baseType, category, definition, updateCustomNodeType, onClose]
   );
 
   const inputCls = cn(
@@ -394,6 +402,16 @@ function EditNodeModal({
             </label>
             <input type="text" value={description} onChange={(e) => setDescription(e.target.value)}
               placeholder="Description (optional)" className={inputCls} />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">
+              Category
+            </label>
+            <select value={category} onChange={(e) => setCategory(e.target.value)} className={inputCls}>
+              {customCategories.map((cat) => (
+                <option key={cat.path} value={cat.path}>{cat.number}: {cat.path}</option>
+              ))}
+            </select>
           </div>
           <div>
             <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">
@@ -423,6 +441,11 @@ function EditNodeModal({
               ))}
             </div>
           </div>
+          {definition?.number && (
+            <div className="text-xs text-slate-400 dark:text-zinc-500">
+              Node #: <span className="font-medium text-slate-600 dark:text-slate-300">{definition.number}</span>
+            </div>
+          )}
           <button type="submit" disabled={!label.trim()}
             className={cn(
               "w-full py-2 text-sm font-medium rounded-md transition-colors",
@@ -465,6 +488,8 @@ function CategorySection({
   const renameCustomCategory = useWorkflowStore((s) => s.renameCustomCategory);
   const addCustomCategory = useWorkflowStore((s) => s.addCustomCategory);
   const customCategories = useWorkflowStore((s) => s.customCategories);
+  const updateCustomNodeType = useWorkflowStore((s) => s.updateCustomNodeType);
+  const [isDragOver, setIsDragOver] = useState(false);
 
   // Find category number for this category
   const categoryDef = customCategories.find((c) => c.path === node.fullPath);
@@ -508,6 +533,35 @@ function CategorySection({
     [node.fullPath, addCustomCategory]
   );
 
+  const handleCategoryDragOver = useCallback(
+    (e: DragEvent<HTMLDivElement>) => {
+      if (e.dataTransfer.types.includes("application/palette-node-move")) {
+        e.preventDefault();
+        e.stopPropagation();
+        e.dataTransfer.dropEffect = "move";
+        setIsDragOver(true);
+      }
+    },
+    []
+  );
+
+  const handleCategoryDragLeave = useCallback(() => {
+    setIsDragOver(false);
+  }, []);
+
+  const handleCategoryDrop = useCallback(
+    (e: DragEvent<HTMLDivElement>) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsDragOver(false);
+      const nodeType = e.dataTransfer.getData("application/palette-node-move");
+      if (!nodeType) return;
+      updateCustomNodeType(nodeType, { category: node.fullPath });
+      setOpen(true);
+    },
+    [node.fullPath, updateCustomNodeType]
+  );
+
   const paddingLeft = depth * 12;
 
   // Hierarchy colors based on depth - more distinct solid colors
@@ -536,8 +590,17 @@ function CategorySection({
 
   return (
     <div>
-      {/* Category header */}
-      <div className={cn("flex items-center group", headerBg)}>
+      {/* Category header — drop target for node reordering */}
+      <div
+        onDragOver={handleCategoryDragOver}
+        onDragLeave={handleCategoryDragLeave}
+        onDrop={handleCategoryDrop}
+        className={cn(
+          "flex items-center group",
+          headerBg,
+          isDragOver && "ring-2 ring-inset ring-blue-500 bg-blue-100 dark:bg-blue-900/40"
+        )}
+      >
         <button
           onClick={() => setOpen(!open)}
           className={cn(

@@ -224,9 +224,12 @@ function GridNode({ node }: GridNodeProps) {
           </span>
         )}
 
-        {/* Label */}
-        <span className="text-xs font-medium text-slate-700 truncate flex-1">
-          {label}
+        {/* Label + number */}
+        <span className="flex flex-col min-w-0 flex-1">
+          <span className="text-xs font-medium text-slate-700 truncate">{label}</span>
+          {definition?.number && (
+            <span className="text-[10px] text-slate-400 truncate opacity-60">{definition.number}</span>
+          )}
         </span>
 
         {/* Delete button on hover */}

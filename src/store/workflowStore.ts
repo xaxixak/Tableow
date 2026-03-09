@@ -132,6 +132,7 @@ export interface WorkflowState {
     description?: string
     icon?: string
     baseType?: 'process' | 'decision' | 'start' | 'output'
+    category?: string
   }) => void
   removeCustomNodeType: (type: string) => void
 
@@ -789,6 +790,15 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
         const ports = baseTypeToPorts(updates.baseType)
         updated.inputs = ports.inputs
         updated.outputs = ports.outputs
+      }
+      if (updates.category !== undefined && updates.category !== d.category) {
+        updated.category = updates.category
+        // Re-assign categoryNumber and node number for the new category
+        const targetCat = state.customCategories.find((c) => c.path === updates.category)
+        if (targetCat) {
+          updated.categoryNumber = targetCat.number
+          updated.number = getNextNodeNumber(targetCat.number, state.customNodeTypes.filter((n) => n.type !== type))
+        }
       }
       nodeRegistry.register(updated)
       return updated
