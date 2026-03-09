@@ -1045,6 +1045,10 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
 
   placeNode: (nodeId, laneId, stageId) => {
     const state = get()
+
+    // Check if node was already placed (moving between cells) vs first-time placement
+    const wasAlreadyPlaced = state.gridConfig.placements.some((p) => p.nodeId === nodeId)
+
     // Update placement
     const filtered = state.gridConfig.placements.filter((p) => p.nodeId !== nodeId)
     const newGridConfig = {
@@ -1063,6 +1067,54 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       gridConfig: newGridConfig,
       ...pushHistory({ ...state, nodes: newNodes, gridConfig: newGridConfig }),
     })
+
+    // Only auto-connect on FIRST placement (not when moving an existing node)
+    // This prevents recreating edges the user intentionally deleted
+    if (wasAlreadyPlaced) return
+
+    // Auto-connect to adjacent-stage nodes in the same lane (left→right only)
+    const { stages } = newGridConfig
+    // Find leaf stages (no children) sorted by order
+    const parentIds = new Set(stages.filter((s) => s.parentId).map((s) => s.parentId!))
+    const leafStages = stages.filter((s) => !parentIds.has(s.id)).sort((a, b) => a.order - b.order)
+    const stageIdx = leafStages.findIndex((s) => s.id === stageId)
+    if (stageIdx === -1) return
+
+    // Get the placed node's port names from its definition
+    const thisNode = newNodes.find((n) => n.id === nodeId)
+    const thisDef = thisNode?.type ? nodeRegistry.get(thisNode.type) : undefined
+    const thisInput = thisDef?.inputs?.[0]?.name || 'in'
+    const thisOutput = thisDef?.outputs?.[0]?.name || 'out'
+
+    const prevStage = leafStages[stageIdx - 1]
+    const nextStage = leafStages[stageIdx + 1]
+    const allPlacements = newGridConfig.placements
+
+    // Connect: prevStageNode → thisNode (left to right)
+    if (prevStage) {
+      const prevNodeIds = allPlacements
+        .filter((p) => p.laneId === laneId && p.stageId === prevStage.id)
+        .map((p) => p.nodeId)
+      for (const srcId of prevNodeIds) {
+        const srcNode = newNodes.find((n) => n.id === srcId)
+        const srcDef = srcNode?.type ? nodeRegistry.get(srcNode.type) : undefined
+        const srcOutput = srcDef?.outputs?.[0]?.name || 'out'
+        get().addEdge({ source: srcId, sourceHandle: srcOutput, target: nodeId, targetHandle: thisInput })
+      }
+    }
+
+    // Connect: thisNode → nextStageNode (left to right)
+    if (nextStage) {
+      const nextNodeIds = allPlacements
+        .filter((p) => p.laneId === laneId && p.stageId === nextStage.id)
+        .map((p) => p.nodeId)
+      for (const tgtId of nextNodeIds) {
+        const tgtNode = newNodes.find((n) => n.id === tgtId)
+        const tgtDef = tgtNode?.type ? nodeRegistry.get(tgtNode.type) : undefined
+        const tgtInput = tgtDef?.inputs?.[0]?.name || 'in'
+        get().addEdge({ source: nodeId, sourceHandle: thisOutput, target: tgtId, targetHandle: tgtInput })
+      }
+    }
   },
 
   unplaceNode: (nodeId) => {

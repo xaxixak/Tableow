@@ -94,10 +94,10 @@ function GridCell({ laneId, stageId, placements, nodes, collapsedChildLaneIds }:
       onClick={handleCellClick}
       className={cn(
         "min-h-[60px] min-w-[150px] p-1.5 flex flex-col",
-        "border-r border-b border-slate-200",
+        "border-r border-b border-slate-200 dark:border-zinc-800",
         isEmpty && "border-dashed",
-        isDragOver && "bg-blue-50 border-blue-300",
-        !isDragOver && "bg-slate-50/50 hover:bg-slate-50"
+        isDragOver && "bg-blue-50 border-blue-300 dark:bg-blue-950 dark:border-blue-700",
+        !isDragOver && "bg-slate-50/50 hover:bg-slate-50 dark:bg-black dark:hover:bg-zinc-950"
       )}
       role="gridcell"
       aria-label={`Cell: lane ${laneId}, stage ${stageId}`}
