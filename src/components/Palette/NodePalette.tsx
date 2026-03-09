@@ -562,23 +562,33 @@ function CategorySection({
     [node.fullPath, updateCustomNodeType]
   );
 
-  const paddingLeft = depth * 12;
+  const paddingLeft = depth * 20;
 
-  // Hierarchy colors based on depth - more distinct solid colors
+  // Hierarchy colors — vibrant, distinct per depth level
   const bgColors = [
-    "bg-slate-200 dark:bg-zinc-800",
-    "bg-blue-300 dark:bg-blue-800",
-    "bg-indigo-300 dark:bg-indigo-800",
-    "bg-purple-300 dark:bg-purple-800",
+    "bg-sky-100 dark:bg-sky-900/40",
+    "bg-emerald-100 dark:bg-emerald-900/40",
+    "bg-amber-100 dark:bg-amber-900/40",
+    "bg-violet-100 dark:bg-violet-900/40",
+    "bg-rose-100 dark:bg-rose-900/40",
   ];
   const hoverBgColors = [
-    "hover:bg-slate-300 dark:hover:bg-zinc-700",
-    "hover:bg-blue-400 dark:hover:bg-blue-700",
-    "hover:bg-indigo-400 dark:hover:bg-indigo-700",
-    "hover:bg-purple-400 dark:hover:bg-purple-700",
+    "hover:bg-sky-200 dark:hover:bg-sky-800/50",
+    "hover:bg-emerald-200 dark:hover:bg-emerald-800/50",
+    "hover:bg-amber-200 dark:hover:bg-amber-800/50",
+    "hover:bg-violet-200 dark:hover:bg-violet-800/50",
+    "hover:bg-rose-200 dark:hover:bg-rose-800/50",
+  ];
+  const borderColors = [
+    "border-l-sky-400 dark:border-l-sky-500",
+    "border-l-emerald-400 dark:border-l-emerald-500",
+    "border-l-amber-400 dark:border-l-amber-500",
+    "border-l-violet-400 dark:border-l-violet-500",
+    "border-l-rose-400 dark:border-l-rose-500",
   ];
   const headerBg = bgColors[depth % bgColors.length];
   const headerHover = hoverBgColors[depth % hoverBgColors.length];
+  const borderColor = borderColors[depth % borderColors.length];
 
   // Close menu on click outside
   useEffect(() => {
@@ -596,21 +606,22 @@ function CategorySection({
         onDragLeave={handleCategoryDragLeave}
         onDrop={handleCategoryDrop}
         className={cn(
-          "flex items-center group",
+          "flex items-center group border-l-3",
           headerBg,
+          borderColor,
           isDragOver && "ring-2 ring-inset ring-blue-500 bg-blue-100 dark:bg-blue-900/40"
         )}
+        style={{ marginLeft: `${paddingLeft}px` }}
       >
         <button
           onClick={() => setOpen(!open)}
           className={cn(
-            "flex items-center gap-1.5 flex-1 py-2 text-xs font-semibold",
-            "text-slate-600 dark:text-slate-200 uppercase tracking-wider",
+            "flex items-center gap-1.5 flex-1 py-2 px-3 text-xs font-semibold",
+            "text-slate-700 dark:text-slate-200 uppercase tracking-wider",
             "hover:text-slate-900 dark:hover:text-white",
             "transition-colors duration-100",
             headerHover
           )}
-          style={{ paddingLeft: `${paddingLeft + 12}px` }}
           aria-expanded={open}
         >
           {open ? (
@@ -687,7 +698,7 @@ function CategorySection({
         <>
           {/* Nodes at this level */}
           {hasDefinitions && (
-            <div className="flex flex-col gap-0.5 pb-1" style={{ paddingLeft: `${paddingLeft}px` }}>
+            <div className="flex flex-col gap-0.5 pb-1" style={{ paddingLeft: `${paddingLeft + 20}px` }}>
               {node.definitions.map((def) => (
                 <NodePaletteItem
                   key={def.type}
