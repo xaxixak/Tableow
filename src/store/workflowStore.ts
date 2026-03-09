@@ -209,108 +209,6 @@ function pushHistory(state: {
   return { history: newHistory, historyIndex: newHistory.length - 1 }
 }
 
-/**
- * Helper to get the first output/input port name from a node
- */
-function getDefaultPortNames(node: WorkflowNode | undefined): { output: string; input: string } {
-  if (!node?.type) return { output: 'out', input: 'in' }
-
-  const def = nodeRegistry.get(node.type)
-  if (!def) return { output: 'out', input: 'in' }
-
-  const outputPort = def.outputs?.[0]?.name || 'out'
-  const inputPort = def.inputs?.[0]?.name || 'in'
-
-  return { output: outputPort, input: inputPort }
-}
-
-/**
- * Auto-connect a placed node to adjacent-stage nodes in the same lane.
- * Returns new edges to add (avoids duplicates).
- */
-function autoConnectEdges(
-  nodeId: string,
-  laneId: string,
-  stageId: string,
-  gridConfig: GridConfig,
-  existingEdges: WorkflowEdge[],
-  nodes: WorkflowNode[],
-): WorkflowEdge[] {
-  const { stages, placements } = gridConfig
-
-  // Only consider LEAF stages (no children) - the actual columns where nodes are placed
-  const stageChildren = new Map<string, string[]>()
-  for (const s of stages) {
-    if (s.parentId) {
-      if (!stageChildren.has(s.parentId)) stageChildren.set(s.parentId, [])
-      stageChildren.get(s.parentId)!.push(s.id)
-    }
-  }
-
-  const leafStages = stages.filter((s) => !stageChildren.has(s.id))
-  const sortedStages = [...leafStages].sort((a, b) => a.order - b.order)
-  const stageOrderIndex = new Map(sortedStages.map((s, i) => [s.id, i]))
-
-  const thisOrder = stageOrderIndex.get(stageId)
-  if (thisOrder === undefined) return []
-
-  // Find prev and next stages
-  const prevStage = sortedStages[thisOrder - 1]
-  const nextStage = sortedStages[thisOrder + 1]
-
-  // Existing edge set for dedup
-  const edgeSet = new Set(existingEdges.map((e) => `${e.source}→${e.target}`))
-  const newEdges: WorkflowEdge[] = []
-
-  const currentNode = nodes.find((n) => n.id === nodeId)
-  const currentPorts = getDefaultPortNames(currentNode)
-
-  // Connect FROM previous-stage nodes in same lane → this node
-  if (prevStage) {
-    const prevNodes = placements.filter(
-      (p) => p.laneId === laneId && p.stageId === prevStage.id
-    )
-    for (const p of prevNodes) {
-      const key = `${p.nodeId}→${nodeId}`
-      if (!edgeSet.has(key)) {
-        edgeSet.add(key)
-        const sourceNode = nodes.find((n) => n.id === p.nodeId)
-        const sourcePorts = getDefaultPortNames(sourceNode)
-        newEdges.push({
-          id: `e-${p.nodeId}-${nodeId}`,
-          source: p.nodeId,
-          target: nodeId,
-          sourceHandle: sourcePorts.output,
-          targetHandle: currentPorts.input,
-        })
-      }
-    }
-  }
-
-  // Connect FROM this node → next-stage nodes in same lane
-  if (nextStage) {
-    const nextNodes = placements.filter(
-      (p) => p.laneId === laneId && p.stageId === nextStage.id
-    )
-    for (const p of nextNodes) {
-      const key = `${nodeId}→${p.nodeId}`
-      if (!edgeSet.has(key)) {
-        edgeSet.add(key)
-        const targetNode = nodes.find((n) => n.id === p.nodeId)
-        const targetPorts = getDefaultPortNames(targetNode)
-        newEdges.push({
-          id: `e-${nodeId}-${p.nodeId}`,
-          source: nodeId,
-          target: p.nodeId,
-          sourceHandle: currentPorts.output,
-          targetHandle: targetPorts.input,
-        })
-      }
-    }
-  }
-
-  return newEdges
-}
 
 function baseTypeToPorts(baseType: string): { inputs: NodeDefinition['inputs']; outputs: NodeDefinition['outputs'] } {
   switch (baseType) {
@@ -1160,21 +1058,10 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
         : node,
     )
 
-    // In grid mode: Remove ALL edges connected to this node before auto-connecting
-    // This ensures grid connections are always left-to-right based on current position
-    const edgesWithoutNode = state.edges.filter(
-      (e) => e.source !== nodeId && e.target !== nodeId
-    )
-
-    // Auto-connect: create edges to/from adjacent-stage nodes in same lane
-    const autoEdges = autoConnectEdges(nodeId, laneId, stageId, newGridConfig, edgesWithoutNode, newNodes)
-    const newEdges = [...edgesWithoutNode, ...autoEdges]
-
     set({
       nodes: newNodes,
-      edges: newEdges,
       gridConfig: newGridConfig,
-      ...pushHistory({ ...state, nodes: newNodes, edges: newEdges, gridConfig: newGridConfig }),
+      ...pushHistory({ ...state, nodes: newNodes, gridConfig: newGridConfig }),
     })
   },
 
