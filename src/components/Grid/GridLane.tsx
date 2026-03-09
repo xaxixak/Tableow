@@ -195,10 +195,10 @@ function GridLane({
           onDragEnd={handleLaneDragEnd}
           className={cn(
             "sticky left-0 z-10 flex items-center gap-1 px-2 py-2 group/lane",
-            "bg-white border-r border-b border-slate-200",
+            "bg-white dark:bg-zinc-950 border-r border-b border-slate-200 dark:border-zinc-800",
             "min-w-[120px] select-none cursor-grab active:cursor-grabbing",
             laneColorClass,
-            isDragOver && "border-t-2 border-t-blue-500 bg-blue-50"
+            isDragOver && "border-t-2 border-t-blue-500 bg-blue-50 dark:bg-blue-950"
           )}
           style={{ paddingLeft: `${8 + depth * 16}px` }}
           onContextMenu={handleContextMenu}
@@ -210,7 +210,7 @@ function GridLane({
           {hasChildren ? (
             <button
               onClick={() => setCollapsed(!collapsed)}
-              className="p-0.5 rounded hover:bg-slate-100 shrink-0"
+              className="p-0.5 rounded hover:bg-slate-100 dark:hover:bg-zinc-800 shrink-0"
               aria-label={collapsed ? "Expand lane" : "Collapse lane"}
               aria-expanded={!collapsed}
             >
@@ -239,12 +239,12 @@ function GridLane({
                   setEditing(false);
                 }
               }}
-              className="px-1 py-0.5 text-xs font-medium border border-blue-400 rounded bg-white focus:outline-none focus:ring-1 focus:ring-blue-500/30 min-w-[60px]"
+              className="px-1 py-0.5 text-xs font-medium border border-blue-400 rounded bg-white dark:bg-zinc-900 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500/30 min-w-[60px]"
             />
           ) : (
             <span
               onDoubleClick={() => setEditing(true)}
-              className="text-xs font-medium text-slate-700 truncate cursor-default"
+              className="text-xs font-medium text-slate-700 dark:text-slate-300 truncate cursor-default"
               title="Double-click to rename"
             >
               {lane.label}
@@ -286,20 +286,20 @@ function GridLane({
       {/* Context menu */}
       {contextMenu && (
         <div
-          className="fixed z-50 bg-white border border-slate-200 rounded-lg shadow-lg py-1 min-w-[180px]"
+          className="fixed z-50 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg shadow-lg py-1 min-w-[180px]"
           style={{ left: contextMenu.x, top: contextMenu.y }}
           onClick={(e) => e.stopPropagation()}
         >
           <button
             onClick={handleRename}
-            className="flex items-center gap-2 w-full px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
+            className="flex items-center gap-2 w-full px-3 py-1.5 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-zinc-800"
           >
             <Edit3 className="w-3.5 h-3.5" />
             Rename
           </button>
           <button
             onClick={handleAddSubLane}
-            className="flex items-center gap-2 w-full px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
+            className="flex items-center gap-2 w-full px-3 py-1.5 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-zinc-800"
           >
             <Plus className="w-3.5 h-3.5" />
             Add Sub-lane
@@ -308,8 +308,8 @@ function GridLane({
           {/* Color submenu */}
           <div className="px-3 py-1.5">
             <div className="flex items-center gap-1.5 mb-1">
-              <Palette className="w-3.5 h-3.5 text-slate-500" />
-              <span className="text-xs text-slate-500">Color</span>
+              <Palette className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
+              <span className="text-xs text-slate-500 dark:text-slate-400">Color</span>
             </div>
             <div className="flex gap-1 flex-wrap">
               {LANE_COLORS.map((c) => (
@@ -317,8 +317,8 @@ function GridLane({
                   key={c.label}
                   onClick={() => handleColorChange(c.value)}
                   className={cn(
-                    "w-5 h-5 rounded border border-slate-300",
-                    c.value ?? "bg-white",
+                    "w-5 h-5 rounded border border-slate-300 dark:border-zinc-600",
+                    c.value ?? "bg-white dark:bg-zinc-800",
                     lane.color === c.value && "ring-2 ring-blue-500"
                   )}
                   title={c.label}
@@ -327,10 +327,10 @@ function GridLane({
             </div>
           </div>
 
-          <hr className="my-1 border-slate-100" />
+          <hr className="my-1 border-slate-100 dark:border-zinc-700" />
           <button
             onClick={handleDelete}
-            className="flex items-center gap-2 w-full px-3 py-1.5 text-sm text-red-600 hover:bg-red-50"
+            className="flex items-center gap-2 w-full px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-950"
           >
             <Trash2 className="w-3.5 h-3.5" />
             Delete

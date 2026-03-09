@@ -15,6 +15,7 @@ import {
   Undo2,
   Redo2,
   Link2,
+  SaveAll,
 } from "lucide-react";
 import { useWorkflowStore } from "../../store/workflowStore.ts";
 import type { Workflow } from "../../types/index.ts";
@@ -50,16 +51,17 @@ export default function Toolbar() {
   const [clearModalOpen, setClearModalOpen] = useState(false);
   const [newWorkflowModalOpen, setNewWorkflowModalOpen] = useState(false);
   const [linkOverviewOpen, setLinkOverviewOpen] = useState(false);
+  const [currentFileName, setCurrentFileName] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleSave = useCallback(() => {
-    setSaveModalOpen(true);
-  }, []);
+  // Sync nameValue when metadata.name changes (e.g., after loadWorkflow)
+  useEffect(() => {
+    setNameValue(metadata.name);
+  }, [metadata.name]);
 
-  const handleSaveSubmit = useCallback(
+  const downloadWorkflow = useCallback(
     (fileName: string) => {
       const data = getWorkflow();
-      // Save to file
       const json = JSON.stringify(data, null, 2);
       const blob = new Blob([json], { type: "application/json" });
       const url = URL.createObjectURL(blob);
@@ -68,10 +70,32 @@ export default function Toolbar() {
       a.download = `${fileName.replace(/\.json$/i, "")}.json`;
       a.click();
       URL.revokeObjectURL(url);
-      // Also save to recent
       saveToRecent();
     },
     [getWorkflow, saveToRecent]
+  );
+
+  const handleSave = useCallback(() => {
+    if (currentFileName) {
+      // Re-save with the same filename
+      downloadWorkflow(currentFileName);
+    } else {
+      // First time: ask for filename
+      setSaveModalOpen(true);
+    }
+  }, [currentFileName, downloadWorkflow]);
+
+  const handleSaveAs = useCallback(() => {
+    setSaveModalOpen(true);
+  }, []);
+
+  const handleSaveSubmit = useCallback(
+    (fileName: string) => {
+      const cleanName = fileName.replace(/\.json$/i, "");
+      downloadWorkflow(cleanName);
+      setCurrentFileName(cleanName);
+    },
+    [downloadWorkflow]
   );
 
   const handleQuickSave = useCallback(() => {
@@ -83,12 +107,19 @@ export default function Toolbar() {
       const file = event.target.files?.[0];
       if (!file) return;
 
+      const fileName = file.name.replace(/\.json$/i, "");
+
       const reader = new FileReader();
       reader.onload = (e) => {
         try {
           const data = JSON.parse(e.target?.result as string) as Workflow;
+          // Use the filename as workflow name if metadata name is default
+          if (!data.metadata.name || data.metadata.name === "Untitled Workflow") {
+            data.metadata.name = fileName;
+          }
           loadWorkflow(data);
           setNameValue(data.metadata.name);
+          setCurrentFileName(fileName);
         } catch {
           alert("Invalid workflow file.");
         }
@@ -103,6 +134,7 @@ export default function Toolbar() {
     (workflow: Workflow) => {
       loadWorkflow(workflow);
       setNameValue(workflow.metadata.name);
+      setCurrentFileName(null);
       setShowRecent(false);
     },
     [loadWorkflow]
@@ -122,6 +154,7 @@ export default function Toolbar() {
   const handleClearConfirm = useCallback(() => {
     clear();
     setNameValue("Untitled Workflow");
+    setCurrentFileName(null);
   }, [clear]);
 
   const handleNewWorkflow = useCallback(() => {
@@ -131,6 +164,7 @@ export default function Toolbar() {
   const handleNewWorkflowConfirm = useCallback(() => {
     clear();
     setNameValue("Untitled Workflow");
+    setCurrentFileName(null);
   }, [clear]);
 
   const commitName = useCallback(() => {
@@ -188,6 +222,7 @@ export default function Toolbar() {
               }}
               className={cn(
                 "px-2 py-0.5 text-sm font-semibold border border-blue-400 rounded",
+                "bg-white dark:bg-zinc-900 dark:text-slate-100",
                 "focus:outline-none focus:ring-2 focus:ring-blue-500/30"
               )}
               autoFocus
@@ -206,7 +241,7 @@ export default function Toolbar() {
             className="flex items-center gap-1.5 group min-w-0"
             title="Click to rename"
           >
-            <span className="text-sm font-semibold text-slate-800 truncate">
+            <span className="text-sm font-semibold text-slate-800 dark:text-slate-200 truncate">
               {metadata.name}
             </span>
             <Pencil className="w-3 h-3 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
@@ -215,14 +250,14 @@ export default function Toolbar() {
       </div>
 
       {/* View toggle */}
-      <div className="flex items-center rounded-lg border border-slate-200 p-0.5">
+      <div className="flex items-center rounded-lg border border-slate-200 dark:border-zinc-700 p-0.5">
         <button
           onClick={() => setViewMode("grid")}
           className={cn(
             "flex items-center gap-1.5 px-2.5 py-1 text-sm rounded-md transition-colors",
             viewMode === "grid"
               ? "bg-blue-600 text-white"
-              : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"
+              : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-zinc-800"
           )}
           title="Grid view"
         >
@@ -235,7 +270,7 @@ export default function Toolbar() {
             "flex items-center gap-1.5 px-2.5 py-1 text-sm rounded-md transition-colors",
             viewMode === "canvas"
               ? "bg-blue-600 text-white"
-              : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"
+              : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-zinc-800"
           )}
           title="Canvas view"
         >
@@ -310,7 +345,7 @@ export default function Toolbar() {
           onClick={handleNewWorkflow}
           className={cn(
             "flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md",
-            "text-slate-600 hover:bg-slate-100 transition-colors"
+            "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors"
           )}
           title="New workflow"
         >
@@ -327,7 +362,7 @@ export default function Toolbar() {
             }}
             className={cn(
               "flex items-center gap-1 px-3 py-1.5 text-sm rounded-md",
-              "text-slate-600 hover:bg-slate-100 transition-colors"
+              "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors"
             )}
             title="Recent workflows"
           >
@@ -337,11 +372,11 @@ export default function Toolbar() {
           </button>
           {showRecent && (
             <div
-              className="absolute right-0 top-full mt-1 z-50 bg-white border border-slate-200 rounded-lg shadow-lg py-1 min-w-[220px]"
+              className="absolute right-0 top-full mt-1 z-50 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg shadow-lg py-1 min-w-[220px]"
               onClick={(e) => e.stopPropagation()}
             >
               {recentList.length === 0 ? (
-                <div className="px-3 py-2 text-xs text-slate-400 text-center">
+                <div className="px-3 py-2 text-xs text-slate-400 dark:text-slate-500 text-center">
                   No recent saves
                 </div>
               ) : (
@@ -349,25 +384,25 @@ export default function Toolbar() {
                   <button
                     key={w.metadata.id}
                     onClick={() => handleLoadRecent(w)}
-                    className="flex flex-col w-full px-3 py-1.5 text-left hover:bg-slate-50"
+                    className="flex flex-col w-full px-3 py-1.5 text-left hover:bg-slate-50 dark:hover:bg-zinc-800"
                   >
-                    <span className="text-sm font-medium text-slate-700 truncate">
+                    <span className="text-sm font-medium text-slate-700 dark:text-slate-200 truncate">
                       {w.metadata.name}
                     </span>
-                    <span className="text-xs text-slate-400">
+                    <span className="text-xs text-slate-400 dark:text-slate-500">
                       {new Date(w.metadata.updatedAt).toLocaleString()}
                     </span>
                   </button>
                 ))
               )}
-              <hr className="my-1 border-slate-100" />
+              <hr className="my-1 border-slate-100 dark:border-zinc-700" />
               <button
                 onClick={(e) => {
                   e.stopPropagation();
                   handleQuickSave();
                   setRecentList(getRecentSaves());
                 }}
-                className="flex items-center gap-2 w-full px-3 py-1.5 text-sm text-blue-600 hover:bg-blue-50"
+                className="flex items-center gap-2 w-full px-3 py-1.5 text-sm text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950"
               >
                 <Save className="w-3.5 h-3.5" />
                 Quick Save
@@ -380,7 +415,7 @@ export default function Toolbar() {
           onClick={() => fileInputRef.current?.click()}
           className={cn(
             "flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md",
-            "text-slate-600 hover:bg-slate-100 transition-colors"
+            "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors"
           )}
           title="Load workflow from JSON"
         >
@@ -401,17 +436,29 @@ export default function Toolbar() {
             "flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md",
             "text-white bg-blue-600 hover:bg-blue-700 transition-colors"
           )}
-          title="Save workflow as JSON"
+          title={currentFileName ? `Save to ${currentFileName}.json` : "Save workflow as JSON"}
         >
           <Save className="w-4 h-4" />
           <span className="hidden sm:inline">Save</span>
         </button>
 
         <button
+          onClick={handleSaveAs}
+          className={cn(
+            "flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md",
+            "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors"
+          )}
+          title="Save as new file"
+        >
+          <SaveAll className="w-4 h-4" />
+          <span className="hidden sm:inline">Save As</span>
+        </button>
+
+        <button
           onClick={handleClear}
           className={cn(
             "flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md",
-            "text-red-600 hover:bg-red-50 transition-colors"
+            "text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950 transition-colors"
           )}
           title="Clear workflow"
         >

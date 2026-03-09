@@ -57,7 +57,7 @@ function InlineEdit({
             setEditing(false);
           }
         }}
-        className="px-1 py-0.5 text-xs font-semibold border border-blue-400 rounded bg-white focus:outline-none focus:ring-1 focus:ring-blue-500/30 w-full min-w-[60px]"
+        className="px-1 py-0.5 text-xs font-semibold border border-blue-400 rounded bg-white dark:bg-zinc-900 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500/30 w-full min-w-[60px]"
       />
     );
   }
@@ -65,7 +65,7 @@ function InlineEdit({
   return (
     <span
       onDoubleClick={() => setEditing(true)}
-      className="text-xs font-semibold text-slate-600 truncate cursor-default select-none"
+      className="text-xs font-semibold text-slate-600 dark:text-slate-300 truncate cursor-default select-none"
       title="Double-click to rename"
     >
       {value}
@@ -281,7 +281,7 @@ function GridHeader({ stages }: GridHeaderProps) {
       {hasHierarchy && (
         <div className="contents" role="row">
           {/* Empty cell for lane label column */}
-          <div className="sticky left-0 z-20 bg-slate-100 border-r border-b border-slate-300">
+          <div className="sticky left-0 z-20 bg-slate-100 dark:bg-zinc-950 border-r border-b border-slate-300 dark:border-zinc-800">
             <div
               onMouseDown={handleLaneColResizeStart}
               className={cn(
@@ -307,10 +307,10 @@ function GridHeader({ stages }: GridHeaderProps) {
                 onDragEnd={handleStageDragEnd}
                 className={cn(
                   "flex items-center justify-center gap-1 px-2 py-1.5 group/parent",
-                  "bg-slate-100 border-r border-b border-slate-300",
-                  "text-xs font-semibold text-slate-500 uppercase tracking-wider",
+                  "bg-slate-100 dark:bg-zinc-950 border-r border-b border-slate-300 dark:border-zinc-800",
+                  "text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider",
                   "cursor-grab active:cursor-grabbing",
-                  dragOverStageId === stage.id && "border-l-2 border-l-blue-500 bg-blue-50"
+                  dragOverStageId === stage.id && "border-l-2 border-l-blue-500 bg-blue-50 dark:bg-blue-950"
                 )}
                 style={{
                   gridColumn: `span ${span}`,
@@ -335,8 +335,8 @@ function GridHeader({ stages }: GridHeaderProps) {
         <div
           className={cn(
             "sticky left-0 z-20 flex items-center px-3 py-2",
-            "bg-slate-100 border-r border-b border-slate-300",
-            "text-xs font-semibold text-slate-500 uppercase tracking-wider"
+            "bg-slate-100 dark:bg-zinc-950 border-r border-b border-slate-300 dark:border-zinc-800",
+            "text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider"
           )}
         >
           Lane
@@ -362,9 +362,9 @@ function GridHeader({ stages }: GridHeaderProps) {
             onDragEnd={handleStageDragEnd}
             className={cn(
               "relative flex items-center justify-center gap-1 px-2 py-2 group/stage",
-              "bg-slate-100 border-r border-b border-slate-300",
+              "bg-slate-100 dark:bg-zinc-950 border-r border-b border-slate-300 dark:border-zinc-800",
               "min-w-[80px] cursor-grab active:cursor-grabbing",
-              dragOverStageId === stage.id && "border-l-2 border-l-blue-500 bg-blue-50"
+              dragOverStageId === stage.id && "border-l-2 border-l-blue-500 bg-blue-50 dark:bg-blue-950"
             )}
             onContextMenu={(e) => handleContextMenu(e, stage.id)}
           >
@@ -389,28 +389,28 @@ function GridHeader({ stages }: GridHeaderProps) {
       {/* Context menu */}
       {contextMenu && (
         <div
-          className="fixed z-50 bg-white border border-slate-200 rounded-lg shadow-lg py-1 min-w-[160px]"
+          className="fixed z-50 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg shadow-lg py-1 min-w-[160px]"
           style={{ left: contextMenu.x, top: contextMenu.y }}
           onClick={(e) => e.stopPropagation()}
         >
           <button
             onClick={handleRename}
-            className="flex items-center gap-2 w-full px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
+            className="flex items-center gap-2 w-full px-3 py-1.5 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-zinc-800"
           >
             <Edit3 className="w-3.5 h-3.5" />
             Rename
           </button>
           <button
             onClick={handleAddSubStage}
-            className="flex items-center gap-2 w-full px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
+            className="flex items-center gap-2 w-full px-3 py-1.5 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-zinc-800"
           >
             <Plus className="w-3.5 h-3.5" />
             Add Sub-stage
           </button>
-          <hr className="my-1 border-slate-100" />
+          <hr className="my-1 border-slate-100 dark:border-zinc-700" />
           <button
             onClick={handleDelete}
-            className="flex items-center gap-2 w-full px-3 py-1.5 text-sm text-red-600 hover:bg-red-50"
+            className="flex items-center gap-2 w-full px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-950"
           >
             <Trash2 className="w-3.5 h-3.5" />
             Delete

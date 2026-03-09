@@ -271,8 +271,9 @@ export default function GridView() {
                 onClick={handleAddLane}
                 className={cn(
                   "flex items-center gap-1 px-3 py-1 text-xs rounded-md",
-                  "border border-dashed border-slate-300 text-slate-400",
+                  "border border-dashed border-slate-300 dark:border-zinc-700 text-slate-400 dark:text-slate-500",
                   "hover:border-slate-400 hover:text-slate-500 hover:bg-white",
+                  "dark:hover:border-zinc-600 dark:hover:text-slate-400 dark:hover:bg-zinc-900",
                   "transition-colors"
                 )}
                 title="Add lane"
@@ -284,8 +285,9 @@ export default function GridView() {
                 onClick={handleAddStage}
                 className={cn(
                   "flex items-center gap-1 px-3 py-1 text-xs rounded-md",
-                  "border border-dashed border-slate-300 text-slate-400",
+                  "border border-dashed border-slate-300 dark:border-zinc-700 text-slate-400 dark:text-slate-500",
                   "hover:border-slate-400 hover:text-slate-500 hover:bg-white",
+                  "dark:hover:border-zinc-600 dark:hover:text-slate-400 dark:hover:bg-zinc-900",
                   "transition-colors"
                 )}
                 title="Add stage (column)"
