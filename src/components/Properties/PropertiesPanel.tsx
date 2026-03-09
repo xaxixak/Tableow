@@ -99,6 +99,7 @@ export default function PropertiesPanel() {
   const collapsed = useWorkflowStore((s) => s.propertiesCollapsed);
   const toggleProperties = useWorkflowStore((s) => s.toggleProperties);
   const customCategories = useWorkflowStore((s) => s.customCategories);
+  const gridConfig = useWorkflowStore((s) => s.gridConfig);
   const registryVersion = useWorkflowStore((s) => s.registryVersion);
   const updateCustomNodeDefinition = useWorkflowStore((s) => s.updateCustomNodeDefinition);
   const addConfigFieldToCustomNode = useWorkflowStore((s) => s.addConfigFieldToCustomNode);
@@ -431,7 +432,7 @@ export default function PropertiesPanel() {
                       <div>
                         <span className="text-slate-400 dark:text-slate-500">Lane: </span>
                         <span className="text-slate-700 dark:text-slate-300">
-                          {selectedNode.data.laneId}
+                          {gridConfig.lanes.find((l) => l.id === selectedNode.data.laneId)?.label ?? selectedNode.data.laneId}
                         </span>
                       </div>
                     )}
@@ -439,7 +440,7 @@ export default function PropertiesPanel() {
                       <div>
                         <span className="text-slate-400 dark:text-slate-500">Stage: </span>
                         <span className="text-slate-700 dark:text-slate-300">
-                          {selectedNode.data.stageId}
+                          {gridConfig.stages.find((s) => s.id === selectedNode.data.stageId)?.label ?? selectedNode.data.stageId}
                         </span>
                       </div>
                     )}
