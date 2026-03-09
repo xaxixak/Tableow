@@ -1,5 +1,5 @@
-import { useState, useCallback, useRef, useEffect, type DragEvent } from "react";
-import { Plus, X, GripVertical, ArrowRight } from "lucide-react";
+import { useState, useCallback, useMemo, useRef, useEffect, type DragEvent } from "react";
+import { Plus, X, GripVertical, ArrowRight, Search } from "lucide-react";
 import { Modal } from "./Modal";
 import { useWorkflowStore } from "../../store/workflowStore.ts";
 import { cn } from "../../lib/utils.ts";
@@ -22,19 +22,29 @@ export function EdgeDetailModal({ isOpen, onClose, edgeId }: EdgeDetailModalProp
 
   const subSteps = edge?.data?.subSteps ?? [];
 
-  const [addingAtIndex, setAddingAtIndex] = useState<number | null>(null);
-  const [newStepLabel, setNewStepLabel] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
   const [editingStepId, setEditingStepId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
-  const addInputRef = useRef<HTMLInputElement>(null);
+  const [nodeDropIndex, setNodeDropIndex] = useState<number | null>(null);
   const editInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    if (addingAtIndex !== null) {
-      addInputRef.current?.focus();
-    }
-  }, [addingAtIndex]);
+  // Available nodes for the picker (exclude source/target since they're fixed chips)
+  const availableNodes = useMemo(() => {
+    return nodes.filter(
+      (n) => n.id !== edge?.source && n.id !== edge?.target
+    );
+  }, [nodes, edge?.source, edge?.target]);
+
+  const filteredNodes = useMemo(() => {
+    if (!searchQuery.trim()) return availableNodes;
+    const q = searchQuery.toLowerCase();
+    return availableNodes.filter((n) => {
+      const label = (n.data?.label || "").toLowerCase();
+      const type = (n.data?.definitionType || "").toLowerCase();
+      return label.includes(q) || type.includes(q);
+    });
+  }, [availableNodes, searchQuery]);
 
   useEffect(() => {
     if (editingStepId) {
@@ -50,31 +60,22 @@ export function EdgeDetailModal({ isOpen, onClose, edgeId }: EdgeDetailModalProp
     [edgeId, updateEdge]
   );
 
-  const handleAddStep = useCallback(
-    (atIndex: number) => {
-      const trimmed = newStepLabel.trim();
-      if (!trimmed) {
-        setAddingAtIndex(null);
-        setNewStepLabel("");
-        return;
-      }
-
+  const handleAddNodeStep = useCallback(
+    (atIndex: number, nodeId: string, label: string) => {
       const newStep: EdgeSubStep = {
         id: crypto.randomUUID(),
-        label: trimmed,
+        label,
+        nodeId,
         order: atIndex,
       };
 
-      // Insert at position and reindex
       const updated = [...subSteps];
       updated.splice(atIndex, 0, newStep);
       const reindexed = updated.map((s, i) => ({ ...s, order: i }));
 
       updateSubSteps(reindexed);
-      setAddingAtIndex(null);
-      setNewStepLabel("");
     },
-    [newStepLabel, subSteps, updateSubSteps]
+    [subSteps, updateSubSteps]
   );
 
   const handleRemoveStep = useCallback(
@@ -108,8 +109,8 @@ export function EdgeDetailModal({ isOpen, onClose, edgeId }: EdgeDetailModalProp
     setEditValue(step.label);
   }, []);
 
-  // Drag-to-reorder
-  const handleDragStart = useCallback(
+  // ── Drag-to-reorder existing steps ──
+  const handleReorderDragStart = useCallback(
     (e: DragEvent<HTMLDivElement>, index: number) => {
       e.dataTransfer.setData("application/edge-step-reorder", String(index));
       e.dataTransfer.effectAllowed = "move";
@@ -117,7 +118,7 @@ export function EdgeDetailModal({ isOpen, onClose, edgeId }: EdgeDetailModalProp
     []
   );
 
-  const handleDragOver = useCallback(
+  const handleReorderDragOver = useCallback(
     (e: DragEvent<HTMLDivElement>, index: number) => {
       if (e.dataTransfer.types.includes("application/edge-step-reorder")) {
         e.preventDefault();
@@ -128,11 +129,11 @@ export function EdgeDetailModal({ isOpen, onClose, edgeId }: EdgeDetailModalProp
     []
   );
 
-  const handleDragLeave = useCallback(() => {
+  const handleReorderDragLeave = useCallback(() => {
     setDragOverIndex(null);
   }, []);
 
-  const handleDrop = useCallback(
+  const handleReorderDrop = useCallback(
     (e: DragEvent<HTMLDivElement>, targetIndex: number) => {
       e.preventDefault();
       setDragOverIndex(null);
@@ -148,8 +149,52 @@ export function EdgeDetailModal({ isOpen, onClose, edgeId }: EdgeDetailModalProp
     [subSteps, updateSubSteps]
   );
 
-  const handleDragEnd = useCallback(() => {
+  const handleReorderDragEnd = useCallback(() => {
     setDragOverIndex(null);
+  }, []);
+
+  // ── Drag node from palette into flow ──
+  const handleNodeDragStart = useCallback(
+    (e: DragEvent<HTMLDivElement>, nodeId: string, label: string) => {
+      e.dataTransfer.setData("application/edge-node-add", JSON.stringify({ nodeId, label }));
+      e.dataTransfer.effectAllowed = "copy";
+    },
+    []
+  );
+
+  const handleDropZoneDragOver = useCallback(
+    (e: DragEvent<HTMLButtonElement>, index: number) => {
+      if (e.dataTransfer.types.includes("application/edge-node-add")) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "copy";
+        setNodeDropIndex(index);
+      }
+    },
+    []
+  );
+
+  const handleDropZoneDragLeave = useCallback(() => {
+    setNodeDropIndex(null);
+  }, []);
+
+  const handleDropZoneDrop = useCallback(
+    (e: DragEvent<HTMLButtonElement>, index: number) => {
+      e.preventDefault();
+      setNodeDropIndex(null);
+      const raw = e.dataTransfer.getData("application/edge-node-add");
+      if (!raw) return;
+      try {
+        const { nodeId, label } = JSON.parse(raw) as { nodeId: string; label: string };
+        handleAddNodeStep(index, nodeId, label);
+      } catch {
+        // ignore malformed data
+      }
+    },
+    [handleAddNodeStep]
+  );
+
+  const handleDropZoneDragEnd = useCallback(() => {
+    setNodeDropIndex(null);
   }, []);
 
   if (!edge || !sourceNode || !targetNode) return null;
@@ -158,21 +203,21 @@ export function EdgeDetailModal({ isOpen, onClose, edgeId }: EdgeDetailModalProp
   const targetName = targetNode.data?.label || targetNode.type || "Target";
   const sortedSteps = [...subSteps].sort((a, b) => a.order - b.order);
 
-  const addButton = (index: number) => (
+  // + drop zone button — accepts node drops and click-to-add
+  const dropZone = (index: number) => (
     <button
-      key={`add-${index}`}
-      onClick={() => {
-        setAddingAtIndex(index);
-        setNewStepLabel("");
-      }}
+      key={`drop-${index}`}
+      onDragOver={(e) => handleDropZoneDragOver(e, index)}
+      onDragLeave={handleDropZoneDragLeave}
+      onDrop={(e) => handleDropZoneDrop(e, index)}
+      onDragEnd={handleDropZoneDragEnd}
       className={cn(
-        "flex items-center justify-center w-6 h-6 rounded-full shrink-0",
-        "border-2 border-dashed border-slate-300 dark:border-zinc-600",
-        "text-slate-400 dark:text-zinc-500",
-        "hover:border-blue-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:border-blue-500 dark:hover:bg-blue-900/20",
-        "transition-colors"
+        "flex items-center justify-center w-6 h-6 rounded-full shrink-0 transition-all",
+        nodeDropIndex === index
+          ? "w-8 h-8 border-2 border-solid border-blue-500 bg-blue-100 dark:bg-blue-900/40 text-blue-600 scale-110"
+          : "border-2 border-dashed border-slate-300 dark:border-zinc-600 text-slate-400 dark:text-zinc-500 hover:border-blue-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:border-blue-500 dark:hover:bg-blue-900/20"
       )}
-      title="Add step here"
+      title="Drop a node here or click to browse"
     >
       <Plus className="w-3 h-3" />
     </button>
@@ -203,7 +248,7 @@ export function EdgeDetailModal({ isOpen, onClose, edgeId }: EdgeDetailModalProp
         )}
       </div>
 
-      {/* Flow visualization */}
+      {/* Flow visualization — drop zones between nodes */}
       <div className="flex items-center gap-2 flex-wrap py-4 min-h-[80px]">
         {/* Source chip */}
         <div className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 shrink-0">
@@ -212,7 +257,7 @@ export function EdgeDetailModal({ isOpen, onClose, edgeId }: EdgeDetailModalProp
         </div>
 
         {arrow}
-        {addButton(0)}
+        {dropZone(0)}
 
         {/* Steps */}
         {sortedSteps.map((step, i) => (
@@ -222,11 +267,11 @@ export function EdgeDetailModal({ isOpen, onClose, edgeId }: EdgeDetailModalProp
             {/* Step card */}
             <div
               draggable={editingStepId !== step.id}
-              onDragStart={(e) => handleDragStart(e, i)}
-              onDragOver={(e) => handleDragOver(e, i)}
-              onDragLeave={handleDragLeave}
-              onDrop={(e) => handleDrop(e, i)}
-              onDragEnd={handleDragEnd}
+              onDragStart={(e) => handleReorderDragStart(e, i)}
+              onDragOver={(e) => handleReorderDragOver(e, i)}
+              onDragLeave={handleReorderDragLeave}
+              onDrop={(e) => handleReorderDrop(e, i)}
+              onDragEnd={handleReorderDragEnd}
               className={cn(
                 "relative flex items-center gap-1.5 px-3 py-2 rounded-lg group/step shrink-0",
                 "bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-600",
@@ -271,7 +316,7 @@ export function EdgeDetailModal({ isOpen, onClose, edgeId }: EdgeDetailModalProp
             </div>
 
             {arrow}
-            {addButton(i + 1)}
+            {dropZone(i + 1)}
           </div>
         ))}
 
@@ -284,51 +329,75 @@ export function EdgeDetailModal({ isOpen, onClose, edgeId }: EdgeDetailModalProp
         </div>
       </div>
 
-      {/* Inline add input */}
-      {addingAtIndex !== null && (
-        <div className="flex items-center gap-2 mt-2 p-2 bg-slate-50 dark:bg-zinc-800 rounded-lg border border-slate-200 dark:border-zinc-700">
+      {/* ── Available Nodes palette (always visible) ── */}
+      <div className="mt-2 pt-3 border-t border-slate-200 dark:border-zinc-700">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+            Available Nodes — drag into flow
+          </span>
+          <span className="text-xs text-slate-400 dark:text-zinc-500">
+            {availableNodes.length} node{availableNodes.length !== 1 ? "s" : ""}
+          </span>
+        </div>
+
+        {/* Search */}
+        <div className="relative mb-2">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 dark:text-zinc-500" />
           <input
-            ref={addInputRef}
             type="text"
-            value={newStepLabel}
-            onChange={(e) => setNewStepLabel(e.target.value)}
-            onBlur={() => handleAddStep(addingAtIndex)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") handleAddStep(addingAtIndex);
-              if (e.key === "Escape") {
-                setAddingAtIndex(null);
-                setNewStepLabel("");
-              }
-            }}
-            placeholder="Step name..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search nodes..."
             className={cn(
-              "flex-1 px-2.5 py-1.5 text-sm rounded-md border border-slate-200",
+              "w-full pl-8 pr-3 py-1.5 text-sm rounded-md border border-slate-200",
               "bg-white dark:bg-zinc-700 dark:border-zinc-600 dark:text-slate-200",
               "focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400"
             )}
           />
-          <button
-            onClick={() => handleAddStep(addingAtIndex)}
-            className="px-3 py-1.5 text-sm font-medium rounded-md bg-blue-600 text-white hover:bg-blue-700 transition-colors"
-          >
-            Add
-          </button>
-          <button
-            onClick={() => {
-              setAddingAtIndex(null);
-              setNewStepLabel("");
-            }}
-            className="px-3 py-1.5 text-sm font-medium rounded-md text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-zinc-700 transition-colors"
-          >
-            Cancel
-          </button>
         </div>
-      )}
+
+        {/* Draggable node list */}
+        <div className="max-h-[180px] overflow-y-auto rounded-md border border-slate-200 dark:border-zinc-600 bg-white dark:bg-zinc-700">
+          {filteredNodes.length === 0 ? (
+            <div className="px-3 py-4 text-center text-xs text-slate-400 dark:text-zinc-500">
+              {availableNodes.length === 0 ? "No other nodes on the dashboard" : "No matching nodes"}
+            </div>
+          ) : (
+            filteredNodes.map((node) => {
+              const label = node.data?.label || node.type || "Node";
+              return (
+                <div
+                  key={node.id}
+                  draggable
+                  onDragStart={(e) => handleNodeDragStart(e, node.id, label)}
+                  className={cn(
+                    "flex items-center gap-2 w-full px-3 py-2 text-left text-sm",
+                    "hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors",
+                    "border-b border-slate-100 dark:border-zinc-600 last:border-b-0",
+                    "cursor-grab active:cursor-grabbing select-none"
+                  )}
+                >
+                  <GripVertical className="w-3 h-3 text-slate-300 dark:text-zinc-600 shrink-0" />
+                  <div className="w-2 h-2 rounded-full bg-blue-400 dark:bg-blue-500 shrink-0" />
+                  <span className="font-medium text-slate-700 dark:text-slate-200 truncate">
+                    {label}
+                  </span>
+                  {node.data?.definitionType && (
+                    <span className="ml-auto text-xs text-slate-400 dark:text-zinc-500 truncate max-w-[120px]">
+                      {node.data.definitionType.split(".").pop()}
+                    </span>
+                  )}
+                </div>
+              );
+            })
+          )}
+        </div>
+      </div>
 
       {/* Hint */}
-      {sortedSteps.length === 0 && addingAtIndex === null && (
+      {sortedSteps.length === 0 && (
         <p className="text-xs text-slate-400 dark:text-zinc-500 text-center mt-2">
-          Click the + button to add intermediate steps between the source and target.
+          Drag nodes from the list above onto the + drop zones, or double-click steps to rename.
         </p>
       )}
     </Modal>

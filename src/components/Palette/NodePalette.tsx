@@ -5,7 +5,6 @@ import {
   ChevronLeft,
   Search,
   Plus,
-  X,
   Trash2,
   Pencil,
   MoreVertical,
@@ -15,6 +14,7 @@ import { nodeRegistry } from "../../registry/index.ts";
 import { useWorkflowStore } from "../../store/workflowStore.ts";
 import type { NodeDefinition } from "../../types/index.ts";
 import { cn } from "../../lib/utils.ts";
+import { Modal } from "../Modal/Modal";
 import { InputModal } from "../Modal/InputModal";
 import { ConfirmModal } from "../Modal/ConfirmModal";
 
@@ -202,12 +202,14 @@ function NodePaletteItem({
   );
 }
 
-// --- Inline Add Node Form (inside a category) ---
+// --- Add Node Modal ---
 
-function AddNodeForm({
+function AddNodeModal({
+  isOpen,
   categoryPath,
   onClose,
 }: {
+  isOpen: boolean;
   categoryPath: string;
   onClose: () => void;
 }) {
@@ -215,6 +217,15 @@ function AddNodeForm({
   const [label, setLabel] = useState("");
   const [baseType, setBaseType] = useState("process");
   const [icon, setIcon] = useState(ICON_PRESETS[0]);
+
+  // Reset form when opening
+  useEffect(() => {
+    if (isOpen) {
+      setLabel("");
+      setBaseType("process");
+      setIcon(ICON_PRESETS[0]);
+    }
+  }, [isOpen]);
 
   const handleSubmit = useCallback(
     (e: React.FormEvent) => {
@@ -232,89 +243,123 @@ function AddNodeForm({
   );
 
   const inputCls = cn(
-    "w-full px-2 py-1 text-xs rounded border border-slate-200",
-    "bg-white focus:outline-none focus:ring-1 focus:ring-blue-500/30 focus:border-blue-400"
+    "w-full px-2.5 py-1.5 text-sm rounded-md border border-slate-200 dark:border-zinc-600",
+    "bg-white dark:bg-zinc-700 dark:text-slate-200",
+    "focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400"
   );
 
   return (
-    <form onSubmit={handleSubmit} className="px-3 py-2 bg-blue-50/50 border-y border-blue-100">
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-xs font-medium text-slate-600">Add Node</span>
-        <button type="button" onClick={onClose} className="p-0.5 text-slate-400 hover:text-slate-600">
-          <X className="w-3 h-3" />
-        </button>
-      </div>
-      <div className="flex flex-col gap-1.5">
-        <input
-          type="text"
-          value={label}
-          onChange={(e) => setLabel(e.target.value)}
-          placeholder="Node name"
-          className={inputCls}
-          autoFocus
-          required
-        />
-        <div className="flex gap-1.5">
-          <select value={baseType} onChange={(e) => setBaseType(e.target.value)} className={inputCls}>
-            {BASE_TYPES.map((bt) => (
-              <option key={bt.value} value={bt.value}>{bt.label}</option>
-            ))}
-          </select>
-          <div className="flex gap-0.5 shrink-0">
-            {ICON_PRESETS.slice(0, 5).map((ic) => (
-              <button
-                key={ic}
-                type="button"
-                onClick={() => setIcon(ic)}
-                className={cn(
-                  "w-6 h-6 flex items-center justify-center rounded text-xs border",
-                  icon === ic ? "border-blue-400 bg-blue-50" : "border-slate-200"
-                )}
-              >
-                {ic}
-              </button>
-            ))}
+    <Modal isOpen={isOpen} onClose={onClose} title="Add Node" maxWidth="sm">
+      <form onSubmit={handleSubmit}>
+        <div className="flex flex-col gap-3">
+          <div>
+            <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">
+              Node Name
+            </label>
+            <input
+              type="text"
+              value={label}
+              onChange={(e) => setLabel(e.target.value)}
+              placeholder="Enter node name"
+              className={inputCls}
+              autoFocus
+              required
+            />
           </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">
+              Type
+            </label>
+            <select value={baseType} onChange={(e) => setBaseType(e.target.value)} className={inputCls}>
+              {BASE_TYPES.map((bt) => (
+                <option key={bt.value} value={bt.value}>{bt.label}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">
+              Icon
+            </label>
+            <div className="flex gap-1 flex-wrap">
+              {ICON_PRESETS.map((ic) => (
+                <button
+                  key={ic}
+                  type="button"
+                  onClick={() => setIcon(ic)}
+                  className={cn(
+                    "w-8 h-8 flex items-center justify-center rounded-md text-base border transition-colors",
+                    icon === ic
+                      ? "border-blue-400 bg-blue-50 dark:bg-blue-900/30 dark:border-blue-500"
+                      : "border-slate-200 dark:border-zinc-600 hover:border-slate-300 dark:hover:border-zinc-500"
+                  )}
+                >
+                  {ic}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="text-xs text-slate-400 dark:text-zinc-500">
+            Category: <span className="font-medium text-slate-600 dark:text-slate-300">{categoryPath}</span>
+          </div>
+          <button
+            type="submit"
+            disabled={!label.trim()}
+            className={cn(
+              "w-full py-2 text-sm font-medium rounded-md transition-colors",
+              "bg-blue-600 text-white hover:bg-blue-700",
+              "disabled:bg-slate-300 dark:disabled:bg-zinc-600 disabled:cursor-not-allowed"
+            )}
+          >
+            Add Node
+          </button>
         </div>
-        <button
-          type="submit"
-          disabled={!label.trim()}
-          className={cn(
-            "w-full py-1 text-xs font-medium rounded transition-colors",
-            "bg-blue-600 text-white hover:bg-blue-700",
-            "disabled:bg-slate-300 disabled:cursor-not-allowed"
-          )}
-        >
-          Add
-        </button>
-      </div>
-    </form>
+      </form>
+    </Modal>
   );
 }
 
-// --- Inline Edit Node Form ---
+// --- Edit Node Modal ---
 
-function EditNodeForm({
+function EditNodeModal({
+  isOpen,
   definition,
   onClose,
 }: {
-  definition: NodeDefinition;
+  isOpen: boolean;
+  definition: NodeDefinition | null;
   onClose: () => void;
 }) {
   const updateCustomNodeType = useWorkflowStore((s) => s.updateCustomNodeType);
-  const [label, setLabel] = useState(definition.label);
-  const [description, setDescription] = useState(definition.description ?? "");
-  const [icon, setIcon] = useState(definition.icon ?? ICON_PRESETS[0]);
-  const currentBase = definition.inputs.length === 0 ? "start"
-    : definition.outputs.length === 0 ? "output"
-    : definition.outputs.length >= 2 ? "decision"
+  const currentBase = definition
+    ? definition.inputs.length === 0 ? "start"
+      : definition.outputs.length === 0 ? "output"
+      : definition.outputs.length >= 2 ? "decision"
+      : "process"
     : "process";
+
+  const [label, setLabel] = useState(definition?.label ?? "");
+  const [description, setDescription] = useState(definition?.description ?? "");
+  const [icon, setIcon] = useState(definition?.icon ?? ICON_PRESETS[0]);
   const [baseType, setBaseType] = useState(currentBase);
+
+  // Sync form when definition changes
+  useEffect(() => {
+    if (definition && isOpen) {
+      setLabel(definition.label);
+      setDescription(definition.description ?? "");
+      setIcon(definition.icon ?? ICON_PRESETS[0]);
+      const base = definition.inputs.length === 0 ? "start"
+        : definition.outputs.length === 0 ? "output"
+        : definition.outputs.length >= 2 ? "decision"
+        : "process";
+      setBaseType(base);
+    }
+  }, [definition, isOpen]);
 
   const handleSubmit = useCallback(
     (e: React.FormEvent) => {
       e.preventDefault();
-      if (!label.trim()) return;
+      if (!label.trim() || !definition) return;
       updateCustomNodeType(definition.type, {
         label: label.trim(),
         description: description.trim() || undefined,
@@ -323,51 +368,72 @@ function EditNodeForm({
       });
       onClose();
     },
-    [label, description, icon, baseType, definition.type, updateCustomNodeType, onClose]
+    [label, description, icon, baseType, definition, updateCustomNodeType, onClose]
   );
 
   const inputCls = cn(
-    "w-full px-2 py-1 text-xs rounded border border-slate-200",
-    "bg-white focus:outline-none focus:ring-1 focus:ring-blue-500/30 focus:border-blue-400"
+    "w-full px-2.5 py-1.5 text-sm rounded-md border border-slate-200 dark:border-zinc-600",
+    "bg-white dark:bg-zinc-700 dark:text-slate-200",
+    "focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400"
   );
 
   return (
-    <form onSubmit={handleSubmit} className="px-3 py-2 bg-amber-50/50 border-y border-amber-100">
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-xs font-medium text-slate-600">Edit Node</span>
-        <button type="button" onClick={onClose} className="p-0.5 text-slate-400 hover:text-slate-600">
-          <X className="w-3 h-3" />
-        </button>
-      </div>
-      <div className="flex flex-col gap-1.5">
-        <input type="text" value={label} onChange={(e) => setLabel(e.target.value)}
-          placeholder="Node name" className={inputCls} autoFocus required />
-        <input type="text" value={description} onChange={(e) => setDescription(e.target.value)}
-          placeholder="Description" className={inputCls} />
-        <div className="flex gap-1.5">
-          <select value={baseType} onChange={(e) => setBaseType(e.target.value)} className={inputCls}>
-            {BASE_TYPES.map((bt) => (
-              <option key={bt.value} value={bt.value}>{bt.label}</option>
-            ))}
-          </select>
-          <div className="flex gap-0.5 shrink-0">
-            {ICON_PRESETS.slice(0, 5).map((ic) => (
-              <button key={ic} type="button" onClick={() => setIcon(ic)}
-                className={cn("w-6 h-6 flex items-center justify-center rounded text-xs border",
-                  icon === ic ? "border-blue-400 bg-blue-50" : "border-slate-200")}>
-                {ic}
-              </button>
-            ))}
+    <Modal isOpen={isOpen} onClose={onClose} title="Edit Node" maxWidth="sm">
+      <form onSubmit={handleSubmit}>
+        <div className="flex flex-col gap-3">
+          <div>
+            <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">
+              Node Name
+            </label>
+            <input type="text" value={label} onChange={(e) => setLabel(e.target.value)}
+              placeholder="Node name" className={inputCls} autoFocus required />
           </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">
+              Description
+            </label>
+            <input type="text" value={description} onChange={(e) => setDescription(e.target.value)}
+              placeholder="Description (optional)" className={inputCls} />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">
+              Type
+            </label>
+            <select value={baseType} onChange={(e) => setBaseType(e.target.value)} className={inputCls}>
+              {BASE_TYPES.map((bt) => (
+                <option key={bt.value} value={bt.value}>{bt.label}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">
+              Icon
+            </label>
+            <div className="flex gap-1 flex-wrap">
+              {ICON_PRESETS.map((ic) => (
+                <button key={ic} type="button" onClick={() => setIcon(ic)}
+                  className={cn(
+                    "w-8 h-8 flex items-center justify-center rounded-md text-base border transition-colors",
+                    icon === ic
+                      ? "border-blue-400 bg-blue-50 dark:bg-blue-900/30 dark:border-blue-500"
+                      : "border-slate-200 dark:border-zinc-600 hover:border-slate-300 dark:hover:border-zinc-500"
+                  )}>
+                  {ic}
+                </button>
+              ))}
+            </div>
+          </div>
+          <button type="submit" disabled={!label.trim()}
+            className={cn(
+              "w-full py-2 text-sm font-medium rounded-md transition-colors",
+              "bg-blue-600 text-white hover:bg-blue-700",
+              "disabled:bg-slate-300 dark:disabled:bg-zinc-600 disabled:cursor-not-allowed"
+            )}>
+            Save
+          </button>
         </div>
-        <button type="submit" disabled={!label.trim()}
-          className={cn("w-full py-1 text-xs font-medium rounded transition-colors",
-            "bg-blue-600 text-white hover:bg-blue-700",
-            "disabled:bg-slate-300 disabled:cursor-not-allowed")}>
-          Save
-        </button>
-      </div>
-    </form>
+      </form>
+    </Modal>
   );
 }
 
@@ -389,8 +455,8 @@ function CategorySection({
   onDeleteCustomNode: (type: string) => void;
 }) {
   const [open, setOpen] = useState(defaultOpen);
-  const [addingNode, setAddingNode] = useState(false);
-  const [editingNode, setEditingNode] = useState<string | null>(null);
+  const [addNodeModalOpen, setAddNodeModalOpen] = useState(false);
+  const [editingNodeDef, setEditingNodeDef] = useState<NodeDefinition | null>(null);
   const [showMenu, setShowMenu] = useState(false);
   const [renameModalOpen, setRenameModalOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -516,7 +582,7 @@ function CategorySection({
               onClick={(e) => e.stopPropagation()}
             >
               <button
-                onClick={() => { setOpen(true); setAddingNode(true); setShowMenu(false); }}
+                onClick={() => { setAddNodeModalOpen(true); setShowMenu(false); }}
                 className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50"
               >
                 <Plus className="w-3 h-3" />
@@ -560,29 +626,14 @@ function CategorySection({
           {hasDefinitions && (
             <div className="flex flex-col gap-0.5 pb-1" style={{ paddingLeft: `${paddingLeft}px` }}>
               {node.definitions.map((def) => (
-                editingNode === def.type ? (
-                  <EditNodeForm
-                    key={def.type}
-                    definition={def}
-                    onClose={() => setEditingNode(null)}
-                  />
-                ) : (
-                  <NodePaletteItem
-                    key={def.type}
-                    definition={def}
-                    isCustom={customTypes.has(def.type)}
-                    onEdit={() => setEditingNode(def.type)}
-                    onDelete={() => onDeleteCustomNode(def.type)}
-                  />
-                )
+                <NodePaletteItem
+                  key={def.type}
+                  definition={def}
+                  isCustom={customTypes.has(def.type)}
+                  onEdit={() => setEditingNodeDef(def)}
+                  onDelete={() => onDeleteCustomNode(def.type)}
+                />
               ))}
-            </div>
-          )}
-
-          {/* Add node form */}
-          {addingNode && (
-            <div style={{ paddingLeft: `${paddingLeft}px` }}>
-              <AddNodeForm categoryPath={node.fullPath} onClose={() => setAddingNode(false)} />
             </div>
           )}
 
@@ -603,6 +654,18 @@ function CategorySection({
       )}
 
       {/* Modals */}
+      <AddNodeModal
+        isOpen={addNodeModalOpen}
+        categoryPath={node.fullPath}
+        onClose={() => setAddNodeModalOpen(false)}
+      />
+
+      <EditNodeModal
+        isOpen={editingNodeDef !== null}
+        definition={editingNodeDef}
+        onClose={() => setEditingNodeDef(null)}
+      />
+
       <InputModal
         isOpen={renameModalOpen}
         onClose={() => setRenameModalOpen(false)}

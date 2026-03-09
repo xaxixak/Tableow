@@ -33,6 +33,8 @@ export interface EdgeSubStep {
   label: string
   description?: string
   order: number
+  /** Reference to an existing workflow node (if step was added via node picker) */
+  nodeId?: string
 }
 
 /**
