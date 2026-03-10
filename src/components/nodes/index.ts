@@ -1,6 +1,7 @@
 import type { NodeTypes } from "@xyflow/react";
 import BaseNode from "./BaseNode.tsx";
 import GroupNode from "./GroupNode.tsx";
+import SubStepNode from "./SubStepNode.tsx";
 import { nodeRegistry } from "../../registry/index.ts";
 
 /**
@@ -10,6 +11,7 @@ import { nodeRegistry } from "../../registry/index.ts";
 export const staticNodeTypes: NodeTypes = {
   base: BaseNode,
   group: GroupNode,
+  substep: SubStepNode,
 };
 
 /**

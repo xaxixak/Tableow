@@ -173,6 +173,10 @@ export interface WorkflowState {
     data: Partial<{ label: string; description: string; properties: Record<string, unknown>; subSteps: EdgeSubStep[] }>
   ) => void
 
+  // Edge expand/collapse (view-only state, not in undo/redo)
+  expandedEdgeIds: Set<string>
+  toggleEdgeExpand: (id: string) => void
+
   // Workflow operations
   loadWorkflow: (workflow: Workflow) => void
   getWorkflow: () => Workflow
@@ -261,6 +265,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   metadata: createEmptyMetadata(),
   selectedNodeId: null,
   selectedEdgeId: null,
+  expandedEdgeIds: new Set<string>(),
   isCreatingConnection: false,
   viewMode: 'grid',
   darkMode: localStorage.getItem('darkMode') === 'true',
@@ -296,7 +301,12 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     if (mode === 'canvas') {
       get().syncGridToCanvas()
     }
-    set({ viewMode: mode })
+    // Collapse all expanded edges when leaving canvas
+    if (mode === 'grid') {
+      set({ viewMode: mode, expandedEdgeIds: new Set<string>() })
+    } else {
+      set({ viewMode: mode })
+    }
   },
 
   syncGridToCanvas: () => {
@@ -1318,9 +1328,15 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   removeEdge: (id) => {
     const state = get()
     const newEdges = state.edges.filter((e) => e.id !== id)
+    let expanded = state.expandedEdgeIds
+    if (expanded.has(id)) {
+      expanded = new Set(expanded)
+      expanded.delete(id)
+    }
     set({
       edges: newEdges,
       selectedEdgeId: state.selectedEdgeId === id ? null : state.selectedEdgeId,
+      expandedEdgeIds: expanded,
       ...pushHistory({ ...state, edges: newEdges }),
     })
   },
@@ -1329,26 +1345,42 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     set({ selectedEdgeId: id, selectedNodeId: null })
   },
 
+  toggleEdgeExpand: (id) => {
+    const expanded = new Set(get().expandedEdgeIds)
+    if (expanded.has(id)) {
+      expanded.delete(id)
+    } else {
+      expanded.add(id)
+    }
+    set({ expandedEdgeIds: expanded })
+  },
+
   updateEdge: (id, data) => {
     const state = get()
     const newEdges = state.edges.map((edge) => {
       if (edge.id !== id) return edge
 
       const updatedData = { ...edge.data, ...data }
-      // Update top-level label for React Flow canvas display
-      // Show custom label if set, otherwise show edge number
+      // Use custom label or edge number — badge handles sub-step count display
       const baseName = updatedData.label || updatedData.number || ''
-      const stepCount = updatedData.subSteps?.length ?? 0
-      const displayLabel = stepCount > 0 ? `${baseName} (${stepCount} steps)` : baseName
 
       return {
         ...edge,
-        label: displayLabel,
+        label: baseName,
         data: updatedData,
       }
     })
+
+    // Auto-collapse if sub-steps become empty
+    let expanded = state.expandedEdgeIds
+    if (data.subSteps !== undefined && data.subSteps.length === 0 && expanded.has(id)) {
+      expanded = new Set(expanded)
+      expanded.delete(id)
+    }
+
     set({
       edges: newEdges,
+      expandedEdgeIds: expanded,
       ...pushHistory({ ...state, edges: newEdges }),
     })
   },
@@ -1470,6 +1502,8 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       customCategories: customCats,
       registryVersion: get().registryVersion + 1,
       selectedNodeId: null,
+      selectedEdgeId: null,
+      expandedEdgeIds: new Set<string>(),
       history: [{ nodes: workflow.nodes, edges: processedEdges, gridConfig }],
       historyIndex: 0,
     })
@@ -1515,6 +1549,8 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       customCategories: [],
       registryVersion: get().registryVersion + 1,
       selectedNodeId: null,
+      selectedEdgeId: null,
+      expandedEdgeIds: new Set<string>(),
       history: [{ nodes: [], edges: [], gridConfig: EMPTY_GRID }],
       historyIndex: 0,
     })
