@@ -460,6 +460,15 @@ function EditNodeModal({
   );
 }
 
+// Count all definitions in a category tree (including nested subcategories)
+function countAllDefinitions(node: CategoryNode): number {
+  let count = node.definitions.length;
+  for (const child of node.children.values()) {
+    count += countAllDefinitions(child);
+  }
+  return count;
+}
+
 // --- Category Section (recursive for nested categories) ---
 
 function CategorySection({
@@ -638,7 +647,7 @@ function CategorySection({
             {node.name}
           </span>
           <span className="ml-auto text-slate-400 font-normal normal-case mr-2">
-            {hasDefinitions && node.definitions.length}
+            {countAllDefinitions(node) || ""}
           </span>
         </button>
         {/* Category action menu (three dots) */}

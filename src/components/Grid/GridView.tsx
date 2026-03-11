@@ -19,6 +19,11 @@ export default function GridView() {
   const addStage = useWorkflowStore((s) => s.addStage);
   const selectNode = useWorkflowStore((s) => s.selectNode);
   const seedGrid = useWorkflowStore((s) => s.seedGrid);
+  const removeNode = useWorkflowStore((s) => s.removeNode);
+  const removeEdge = useWorkflowStore((s) => s.removeEdge);
+  const selectedNodeId = useWorkflowStore((s) => s.selectedNodeId);
+  const selectedNodeIds = useWorkflowStore((s) => s.selectedNodeIds);
+  const selectedEdgeId = useWorkflowStore((s) => s.selectedEdgeId);
 
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
 
@@ -119,6 +124,37 @@ export default function GridView() {
     closeContextMenu();
     handleAddStage();
   }, [closeContextMenu, handleAddStage]);
+
+  // Delete key handler for selected nodes/edges
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key !== "Delete" && e.key !== "Backspace") return;
+      // Don't trigger when typing in inputs
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+      if ((e.target as HTMLElement)?.isContentEditable) return;
+
+      if (selectedNodeIds.size > 1) {
+        e.preventDefault();
+        if (window.confirm(`Delete ${selectedNodeIds.size} selected nodes?`)) {
+          for (const id of selectedNodeIds) removeNode(id);
+        }
+      } else if (selectedNodeId) {
+        e.preventDefault();
+        const node = nodes.find((n) => n.id === selectedNodeId);
+        if (window.confirm(`Delete "${node?.data.label ?? "node"}"?`)) {
+          removeNode(selectedNodeId);
+        }
+      } else if (selectedEdgeId) {
+        e.preventDefault();
+        if (window.confirm("Delete this connection?")) {
+          removeEdge(selectedEdgeId);
+        }
+      }
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [selectedNodeId, selectedNodeIds, selectedEdgeId, nodes, removeNode, removeEdge]);
 
   // Close context menu on click outside
   useEffect(() => {
