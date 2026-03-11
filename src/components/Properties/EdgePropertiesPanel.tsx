@@ -2,7 +2,6 @@ import { useMemo, useCallback, useState } from "react";
 import { Trash2, X, ListOrdered } from "lucide-react";
 import { useWorkflowStore } from "../../store/workflowStore.ts";
 import { cn } from "../../lib/utils.ts";
-import { EdgeDetailModal } from "../Modal/EdgeDetailModal";
 
 export function EdgePropertiesPanel() {
   const selectedEdgeId = useWorkflowStore((s) => s.selectedEdgeId);
@@ -11,6 +10,7 @@ export function EdgePropertiesPanel() {
   const removeEdge = useWorkflowStore((s) => s.removeEdge);
   const selectEdge = useWorkflowStore((s) => s.selectEdge);
   const updateEdge = useWorkflowStore((s) => s.updateEdge);
+  const openEdgeDetailModal = useWorkflowStore((s) => s.openEdgeDetailModal);
 
   const selectedEdge = useMemo(
     () => edges.find((e) => e.id === selectedEdgeId),
@@ -19,7 +19,6 @@ export function EdgePropertiesPanel() {
 
   const [label, setLabel] = useState(selectedEdge?.data?.label || "");
   const [description, setDescription] = useState(selectedEdge?.data?.description || "");
-  const [detailModalOpen, setDetailModalOpen] = useState(false);
 
   // Update local state when selected edge changes
   useMemo(() => {
@@ -179,7 +178,7 @@ export function EdgePropertiesPanel() {
             </p>
           )}
           <button
-            onClick={() => setDetailModalOpen(true)}
+            onClick={() => selectedEdgeId && openEdgeDetailModal(selectedEdgeId)}
             className={cn(
               "flex items-center gap-2 w-full px-3 py-2 text-sm font-medium rounded-md",
               "bg-slate-50 text-slate-700 hover:bg-slate-100 border border-slate-200",
@@ -209,14 +208,6 @@ export function EdgePropertiesPanel() {
         </button>
       </div>
 
-      {/* Edge Detail Modal */}
-      {selectedEdgeId && (
-        <EdgeDetailModal
-          isOpen={detailModalOpen}
-          onClose={() => setDetailModalOpen(false)}
-          edgeId={selectedEdgeId}
-        />
-      )}
     </div>
   );
 }

@@ -1,8 +1,50 @@
 import { useState, useCallback, useMemo, useRef, useEffect, type DragEvent } from "react";
-import { Plus, X, GripVertical, ArrowRight, Search, ChevronUp } from "lucide-react";
+import { Plus, X, GripVertical, ArrowRight, Search, ChevronUp, ChevronDown, ChevronRight } from "lucide-react";
 import { useWorkflowStore } from "../../store/workflowStore.ts";
+import { nodeRegistry } from "../../registry/index.ts";
 import { cn } from "../../lib/utils.ts";
-import type { EdgeSubStep } from "../../types/index.ts";
+import type { EdgeSubStep, NodeDefinition } from "../../types/index.ts";
+
+const BUILTIN_CATEGORIES = new Set([
+  "General",
+  "Accounting",
+  "Procurement",
+  "Sales",
+  "Inventory",
+  "HR",
+  "Finance",
+]);
+
+interface CategoryGroup {
+  name: string;
+  fullPath: string;
+  definitions: NodeDefinition[];
+  children: Map<string, CategoryGroup>;
+}
+
+function buildCategoryGroups(definitions: NodeDefinition[]): CategoryGroup {
+  const root: CategoryGroup = { name: "", fullPath: "", definitions: [], children: new Map() };
+  for (const def of definitions) {
+    const parts = def.category.split("/").map((p) => p.trim()).filter(Boolean);
+    let current = root;
+    let pathSoFar = "";
+    for (const part of parts) {
+      pathSoFar = pathSoFar ? `${pathSoFar}/${part}` : part;
+      if (!current.children.has(part)) {
+        current.children.set(part, { name: part, fullPath: pathSoFar, definitions: [], children: new Map() });
+      }
+      current = current.children.get(part)!;
+    }
+    current.definitions.push(def);
+  }
+  return root;
+}
+
+function countDefsRecursive(group: CategoryGroup): number {
+  let count = group.definitions.length;
+  for (const child of group.children.values()) count += countDefsRecursive(child);
+  return count;
+}
 
 interface ExpandedEdgeFlowProps {
   edgeId: string;
@@ -13,6 +55,8 @@ export function ExpandedEdgeFlow({ edgeId, onClose }: ExpandedEdgeFlowProps) {
   const edges = useWorkflowStore((s) => s.edges);
   const nodes = useWorkflowStore((s) => s.nodes);
   const updateEdge = useWorkflowStore((s) => s.updateEdge);
+  const customCategories = useWorkflowStore((s) => s.customCategories);
+  const registryVersion = useWorkflowStore((s) => s.registryVersion);
 
   const edge = edges.find((e) => e.id === edgeId);
   const sourceNode = nodes.find((n) => n.id === edge?.source);
@@ -26,23 +70,50 @@ export function ExpandedEdgeFlow({ edgeId, onClose }: ExpandedEdgeFlowProps) {
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const [nodeDropIndex, setNodeDropIndex] = useState<number | null>(null);
   const [showPalette, setShowPalette] = useState(false);
+  const [libraryOpen, setLibraryOpen] = useState(false);
+  const [myNodesOpen, setMyNodesOpen] = useState(true);
   const editInputRef = useRef<HTMLInputElement>(null);
 
-  const availableNodes = useMemo(() => {
-    return nodes.filter(
-      (n) => n.id !== edge?.source && n.id !== edge?.target
-    );
-  }, [nodes, edge?.source, edge?.target]);
+  const customNodeTypes = useWorkflowStore((s) => s.customNodeTypes);
 
-  const filteredNodes = useMemo(() => {
-    if (!searchQuery.trim()) return availableNodes;
-    const q = searchQuery.toLowerCase();
-    return availableNodes.filter((n) => {
-      const label = (n.data?.label || "").toLowerCase();
-      const type = (n.data?.definitionType || "").toLowerCase();
-      return label.includes(q) || type.includes(q);
+  const customTypeSet = useMemo(
+    () => new Set(customNodeTypes.map((d) => d.type)),
+    [customNodeTypes]
+  );
+
+  // All node definitions split into built-in and custom
+  const { builtInTree, customTree } = useMemo(() => {
+    const all = nodeRegistry.getAll();
+    const filtered = searchQuery.trim()
+      ? all.filter((d) => {
+          const q = searchQuery.toLowerCase();
+          return d.label.toLowerCase().includes(q) ||
+            d.category.toLowerCase().includes(q) ||
+            d.type.toLowerCase().includes(q);
+        })
+      : all;
+
+    const builtInNodes = filtered.filter((d) => {
+      const topCategory = d.category.split("/")[0];
+      return BUILTIN_CATEGORIES.has(topCategory) && !customTypeSet.has(d.type);
     });
-  }, [availableNodes, searchQuery]);
+    const customNodes = filtered.filter((d) => {
+      const topCategory = d.category.split("/")[0];
+      return !BUILTIN_CATEGORIES.has(topCategory) || customTypeSet.has(d.type);
+    });
+
+    return {
+      builtInTree: buildCategoryGroups(builtInNodes),
+      customTree: buildCategoryGroups(customNodes),
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchQuery, registryVersion, customTypeSet]);
+
+  const categoryNumberMap = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const cat of customCategories) map.set(cat.path, cat.number);
+    return map;
+  }, [customCategories]);
 
   useEffect(() => {
     if (editingStepId) {
@@ -149,13 +220,12 @@ export function ExpandedEdgeFlow({ edgeId, onClose }: ExpandedEdgeFlowProps) {
     setDragOverIndex(null);
   }, []);
 
-  // ── Drag node from palette into flow ──
-  const handleNodeDragStart = useCallback(
-    (e: DragEvent<HTMLDivElement>, nodeId: string, label: string) => {
-      e.dataTransfer.setData("application/edge-node-add", JSON.stringify({ nodeId, label }));
-      e.dataTransfer.effectAllowed = "copy";
+  // ── Click to add node as sub-step (canvas mode — drag doesn't work in EdgeLabelRenderer) ──
+  const handleNodeClick = useCallback(
+    (label: string) => {
+      handleAddNodeStep(subSteps.length, "", label);
     },
-    []
+    [handleAddNodeStep, subSteps.length]
   );
 
   const handleDropZoneDragOver = useCallback(
@@ -361,40 +431,196 @@ export function ExpandedEdgeFlow({ edgeId, onClose }: ExpandedEdgeFlowProps) {
               />
             </div>
 
-            {/* Node list */}
-            <div className="max-h-[120px] overflow-y-auto rounded-md border border-slate-200 dark:border-zinc-600 bg-white dark:bg-zinc-700">
-              {filteredNodes.length === 0 ? (
+            {/* Two-section node list */}
+            <div className="max-h-[180px] overflow-y-auto rounded-md border border-slate-200 dark:border-zinc-600 bg-white dark:bg-zinc-800/50">
+              {builtInTree.children.size === 0 && customTree.children.size === 0 ? (
                 <div className="px-2 py-3 text-center text-[10px] text-slate-400 dark:text-zinc-500">
-                  {availableNodes.length === 0 ? "No other nodes" : "No matching nodes"}
+                  No matching nodes
                 </div>
               ) : (
-                filteredNodes.slice(0, 20).map((node) => {
-                  const label = node.data?.label || node.type || "Node";
-                  return (
-                    <div
-                      key={node.id}
-                      draggable
-                      onDragStart={(e) => handleNodeDragStart(e, node.id, label)}
-                      className={cn(
-                        "flex items-center gap-1.5 w-full px-2 py-1.5 text-left text-[11px]",
-                        "hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors",
-                        "border-b border-slate-100 dark:border-zinc-600 last:border-b-0",
-                        "cursor-grab active:cursor-grabbing select-none"
+                <>
+                  {/* Node Library (Built-in) */}
+                  {builtInTree.children.size > 0 && (
+                    <div className="border-b border-slate-200 dark:border-zinc-700">
+                      <button
+                        onClick={() => setLibraryOpen(!libraryOpen)}
+                        className="flex items-center gap-1 w-full px-2 py-1 text-[10px] font-semibold bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 text-slate-600 dark:text-slate-300 uppercase tracking-wider"
+                      >
+                        {libraryOpen ? (
+                          <ChevronDown className="w-2.5 h-2.5 shrink-0" />
+                        ) : (
+                          <ChevronRight className="w-2.5 h-2.5 shrink-0" />
+                        )}
+                        <span>Node Library</span>
+                        <span className="ml-auto text-slate-400 dark:text-slate-500 font-normal normal-case text-[9px]">
+                          {builtInTree.children.size} cat
+                        </span>
+                      </button>
+                      {libraryOpen && (
+                        <div>
+                          {Array.from(builtInTree.children.values()).map((group) => (
+                            <CompactCategory
+                              key={group.fullPath}
+                              group={group}
+                              depth={0}
+                              defaultOpen={searchQuery.trim().length > 0}
+                              categoryNumberMap={categoryNumberMap}
+                              onNodeClick={handleNodeClick}
+                            />
+                          ))}
+                        </div>
                       )}
-                    >
-                      <GripVertical className="w-2.5 h-2.5 text-slate-300 dark:text-zinc-600 shrink-0" />
-                      <div className="w-1.5 h-1.5 rounded-full bg-amber-400 dark:bg-amber-500 shrink-0" />
-                      <span className="font-medium text-slate-700 dark:text-slate-200 truncate">
-                        {label}
-                      </span>
                     </div>
-                  );
-                })
+                  )}
+
+                  {/* My Nodes (Custom) */}
+                  <div>
+                    <button
+                      onClick={() => setMyNodesOpen(!myNodesOpen)}
+                      className="flex items-center gap-1 w-full px-2 py-1 text-[10px] font-semibold bg-blue-100 dark:bg-blue-900/30 hover:bg-blue-200 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-300 uppercase tracking-wider"
+                    >
+                      {myNodesOpen ? (
+                        <ChevronDown className="w-2.5 h-2.5 shrink-0" />
+                      ) : (
+                        <ChevronRight className="w-2.5 h-2.5 shrink-0" />
+                      )}
+                      <span>My Nodes</span>
+                      <span className="ml-auto text-blue-600 dark:text-blue-400 font-normal normal-case text-[9px]">
+                        {customTree.children.size} cat
+                      </span>
+                    </button>
+                    {myNodesOpen && (
+                      <div>
+                        {customTree.children.size === 0 ? (
+                          <div className="px-2 py-3 text-center text-[10px] text-slate-400 dark:text-zinc-500">
+                            No custom nodes yet
+                          </div>
+                        ) : (
+                          Array.from(customTree.children.values()).map((group) => (
+                            <CompactCategory
+                              key={group.fullPath}
+                              group={group}
+                              depth={0}
+                              defaultOpen={searchQuery.trim().length > 0}
+                              categoryNumberMap={categoryNumberMap}
+                              onNodeClick={handleNodeClick}
+                            />
+                          ))
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </>
               )}
             </div>
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+// ── Compact collapsible category for inline panel ──
+
+const COMPACT_COLORS = [
+  "bg-sky-50 dark:bg-sky-900/30",
+  "bg-emerald-50 dark:bg-emerald-900/30",
+  "bg-amber-50 dark:bg-amber-900/30",
+  "bg-violet-50 dark:bg-violet-900/30",
+];
+
+function CompactCategory({
+  group,
+  depth,
+  defaultOpen,
+  categoryNumberMap,
+  onNodeClick,
+}: {
+  group: CategoryGroup;
+  depth: number;
+  defaultOpen: boolean;
+  categoryNumberMap: Map<string, string>;
+  onNodeClick?: (label: string) => void;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+
+  useEffect(() => {
+    if (defaultOpen) setOpen(true);
+  }, [defaultOpen]);
+
+  const total = countDefsRecursive(group);
+  const catNumber = categoryNumberMap.get(group.fullPath);
+  const bgColor = COMPACT_COLORS[depth % COMPACT_COLORS.length];
+
+  return (
+    <div>
+      <button
+        onClick={() => setOpen(!open)}
+        className={cn(
+          "flex items-center gap-1 w-full px-1.5 py-1 text-[10px] font-semibold",
+          "text-slate-700 dark:text-slate-200 uppercase tracking-wider",
+          "hover:brightness-95 dark:hover:brightness-110 transition-all",
+          bgColor
+        )}
+        style={{ paddingLeft: `${4 + depth * 12}px` }}
+      >
+        {open ? (
+          <ChevronDown className="w-2.5 h-2.5 shrink-0" />
+        ) : (
+          <ChevronRight className="w-2.5 h-2.5 shrink-0" />
+        )}
+        {catNumber && (
+          <span className="font-mono text-[9px] text-slate-500 dark:text-slate-400">
+            {catNumber}:
+          </span>
+        )}
+        <span className="truncate">{group.name}</span>
+        <span className="ml-auto text-slate-400 dark:text-zinc-500 font-normal normal-case text-[9px]">
+          {total}
+        </span>
+      </button>
+
+      {open && (
+        <>
+          {group.definitions.map((def) => (
+            <div
+              key={def.type}
+              onClick={() => onNodeClick?.(def.label)}
+              className={cn(
+                "flex items-center gap-1.5 w-full px-2 py-1 text-left text-[11px]",
+                "hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors",
+                "cursor-pointer select-none active:bg-amber-100 dark:active:bg-amber-900/30"
+              )}
+              style={{ paddingLeft: `${12 + depth * 12}px` }}
+              title={`Click to add "${def.label}" as sub-step`}
+            >
+              <Plus className="w-2.5 h-2.5 text-amber-500 shrink-0" />
+              {def.icon && (
+                <span className="text-[11px] leading-none shrink-0">{def.icon}</span>
+              )}
+              <span className="text-slate-700 dark:text-slate-200 truncate">
+                {def.number && (
+                  <span className="font-mono text-[9px] text-slate-400 dark:text-slate-500 mr-0.5">
+                    {def.number}:
+                  </span>
+                )}
+                {def.label}
+              </span>
+            </div>
+          ))}
+
+          {Array.from(group.children.values()).map((child) => (
+            <CompactCategory
+              key={child.fullPath}
+              group={child}
+              depth={depth + 1}
+              defaultOpen={defaultOpen}
+              categoryNumberMap={categoryNumberMap}
+              onNodeClick={onNodeClick}
+            />
+          ))}
+        </>
+      )}
     </div>
   );
 }

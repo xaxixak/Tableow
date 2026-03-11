@@ -1,5 +1,6 @@
 import { memo } from "react";
 import { Handle, Position, type NodeProps } from "@xyflow/react";
+import { useWorkflowStore } from "../../store/workflowStore.ts";
 import { cn } from "../../lib/utils.ts";
 
 /**
@@ -8,20 +9,34 @@ import { cn } from "../../lib/utils.ts";
  */
 function SubStepNode({ data, selected }: NodeProps) {
   const label = (data.label as string) ?? "Step";
+  const edgeId = data.edgeId as string | undefined;
+  const toggleEdgeExpand = useWorkflowStore((s) => s.toggleEdgeExpand);
 
   return (
     <div
       className={cn(
-        "min-w-[120px] rounded-lg shadow-md border-2 border-dashed",
+        "min-w-[120px] rounded-lg shadow-md border-2 border-dashed group/substep",
         "border-amber-400 bg-amber-50 dark:bg-amber-950/40 dark:border-amber-600",
         "transition-shadow duration-150",
         selected && "ring-2 ring-blue-500 shadow-lg"
       )}
     >
-      {/* Header */}
+      {/* Header with collapse button */}
       <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-t-[6px] bg-amber-500 dark:bg-amber-600 text-white text-xs font-medium">
         <span className="text-sm leading-none">◆</span>
-        <span className="truncate">{label}</span>
+        <span className="truncate flex-1">{label}</span>
+        {edgeId && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              toggleEdgeExpand(edgeId);
+            }}
+            className="shrink-0 px-1.5 py-0.5 rounded text-[9px] font-semibold bg-amber-600 dark:bg-amber-700 hover:bg-amber-700 dark:hover:bg-amber-800 transition-colors opacity-0 group-hover/substep:opacity-100"
+            title="Collapse sub-steps"
+          >
+            ▲
+          </button>
+        )}
       </div>
 
       {/* Body with handles */}

@@ -6,6 +6,16 @@ import { nodeRegistry } from "../../registry/index.ts";
 import { cn } from "../../lib/utils.ts";
 import type { EdgeSubStep, NodeDefinition } from "../../types/index.ts";
 
+const BUILTIN_CATEGORIES = new Set([
+  "General",
+  "Accounting",
+  "Procurement",
+  "Sales",
+  "Inventory",
+  "HR",
+  "Finance",
+]);
+
 interface CategoryGroup {
   name: string;
   fullPath: string;
@@ -61,27 +71,45 @@ export function EdgeDetailModal({ isOpen, onClose, edgeId }: EdgeDetailModalProp
   const [editValue, setEditValue] = useState("");
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const [nodeDropIndex, setNodeDropIndex] = useState<number | null>(null);
+  const [libraryOpen, setLibraryOpen] = useState(false);
+  const [myNodesOpen, setMyNodesOpen] = useState(true);
   const editInputRef = useRef<HTMLInputElement>(null);
 
-  // All node definitions from the registry, organized by category
-  const allDefinitions = useMemo(() => {
-    return nodeRegistry.getAll();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [registryVersion]);
+  const customNodeTypes = useWorkflowStore((s) => s.customNodeTypes);
 
-  const filteredDefinitions = useMemo(() => {
-    if (!searchQuery.trim()) return allDefinitions;
-    const q = searchQuery.toLowerCase();
-    return allDefinitions.filter((d) => {
-      return d.label.toLowerCase().includes(q) ||
-        d.category.toLowerCase().includes(q) ||
-        d.type.toLowerCase().includes(q);
+  const customTypeSet = useMemo(
+    () => new Set(customNodeTypes.map((d) => d.type)),
+    [customNodeTypes]
+  );
+
+  // All node definitions from the registry, split into built-in and custom
+  const { builtInTree, customTree, totalCount } = useMemo(() => {
+    const all = nodeRegistry.getAll();
+    const filtered = searchQuery.trim()
+      ? all.filter((d) => {
+          const q = searchQuery.toLowerCase();
+          return d.label.toLowerCase().includes(q) ||
+            d.category.toLowerCase().includes(q) ||
+            d.type.toLowerCase().includes(q);
+        })
+      : all;
+
+    const builtInNodes = filtered.filter((d) => {
+      const topCategory = d.category.split("/")[0];
+      return BUILTIN_CATEGORIES.has(topCategory) && !customTypeSet.has(d.type);
     });
-  }, [allDefinitions, searchQuery]);
+    const customNodes = filtered.filter((d) => {
+      const topCategory = d.category.split("/")[0];
+      return !BUILTIN_CATEGORIES.has(topCategory) || customTypeSet.has(d.type);
+    });
 
-  const categoryTree = useMemo(() => {
-    return buildCategoryGroups(filteredDefinitions);
-  }, [filteredDefinitions]);
+    return {
+      builtInTree: buildCategoryGroups(builtInNodes),
+      customTree: buildCategoryGroups(customNodes),
+      totalCount: filtered.length,
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchQuery, registryVersion, customTypeSet]);
 
   // Category number lookup
   const categoryNumberMap = useMemo(() => {
@@ -373,14 +401,14 @@ export function EdgeDetailModal({ isOpen, onClose, edgeId }: EdgeDetailModalProp
         </div>
       </div>
 
-      {/* ── Available Nodes palette (category-based) ── */}
+      {/* ── Available Nodes palette (split: Node Library + My Nodes) ── */}
       <div className="mt-2 pt-3 border-t border-slate-200 dark:border-zinc-700">
         <div className="flex items-center justify-between mb-2">
           <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
             Available Nodes — drag into flow
           </span>
           <span className="text-xs text-slate-400 dark:text-zinc-500">
-            {allDefinitions.length} node{allDefinitions.length !== 1 ? "s" : ""}
+            {totalCount} node{totalCount !== 1 ? "s" : ""}
           </span>
         </div>
 
@@ -400,23 +428,86 @@ export function EdgeDetailModal({ isOpen, onClose, edgeId }: EdgeDetailModalProp
           />
         </div>
 
-        {/* Category-based node list */}
+        {/* Two-section node list */}
         <div className="max-h-[260px] overflow-y-auto rounded-md border border-slate-200 dark:border-zinc-600 bg-white dark:bg-zinc-800/50">
-          {categoryTree.children.size === 0 ? (
+          {builtInTree.children.size === 0 && customTree.children.size === 0 ? (
             <div className="px-3 py-4 text-center text-xs text-slate-400 dark:text-zinc-500">
               No matching nodes
             </div>
           ) : (
-            Array.from(categoryTree.children.values()).map((group) => (
-              <EdgeNodeCategory
-                key={group.fullPath}
-                group={group}
-                depth={0}
-                defaultOpen={searchQuery.trim().length > 0}
-                categoryNumberMap={categoryNumberMap}
-                onDragStart={handleNodeDragStart}
-              />
-            ))
+            <>
+              {/* Node Library (Built-in) */}
+              {builtInTree.children.size > 0 && (
+                <div className="border-b border-slate-200 dark:border-zinc-700">
+                  <button
+                    onClick={() => setLibraryOpen(!libraryOpen)}
+                    className="flex items-center gap-1.5 w-full px-2.5 py-1.5 text-xs font-semibold bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 text-slate-600 dark:text-slate-300 uppercase tracking-wider"
+                  >
+                    {libraryOpen ? (
+                      <ChevronDown className="w-3 h-3 shrink-0" />
+                    ) : (
+                      <ChevronRight className="w-3 h-3 shrink-0" />
+                    )}
+                    <span>Node Library</span>
+                    <span className="ml-auto text-slate-400 dark:text-slate-500 font-normal normal-case text-[10px]">
+                      {builtInTree.children.size} categories
+                    </span>
+                  </button>
+                  {libraryOpen && (
+                    <div>
+                      {Array.from(builtInTree.children.values()).map((group) => (
+                        <EdgeNodeCategory
+                          key={group.fullPath}
+                          group={group}
+                          depth={0}
+                          defaultOpen={searchQuery.trim().length > 0}
+                          categoryNumberMap={categoryNumberMap}
+                          onDragStart={handleNodeDragStart}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* My Nodes (Custom) */}
+              <div>
+                <button
+                  onClick={() => setMyNodesOpen(!myNodesOpen)}
+                  className="flex items-center gap-1.5 w-full px-2.5 py-1.5 text-xs font-semibold bg-blue-100 dark:bg-blue-900/30 hover:bg-blue-200 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-300 uppercase tracking-wider"
+                >
+                  {myNodesOpen ? (
+                    <ChevronDown className="w-3 h-3 shrink-0" />
+                  ) : (
+                    <ChevronRight className="w-3 h-3 shrink-0" />
+                  )}
+                  <span>My Nodes</span>
+                  <span className="ml-auto text-blue-600 dark:text-blue-400 font-normal normal-case text-[10px]">
+                    {customTree.children.size} categories
+                  </span>
+                </button>
+                {myNodesOpen && (
+                  <div>
+                    {customTree.children.size === 0 ? (
+                      <div className="px-3 py-4 text-center text-xs text-slate-400 dark:text-zinc-500">
+                        No custom nodes yet
+                      </div>
+                    ) : (
+                      Array.from(customTree.children.values()).map((group) => (
+                        <EdgeNodeCategory
+                          key={group.fullPath}
+                          group={group}
+                          depth={0}
+                          defaultOpen={searchQuery.trim().length > 0}
+                          categoryNumberMap={categoryNumberMap}
+                          onDragStart={handleNodeDragStart}
+                        />
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
+            </>
           )}
         </div>
       </div>

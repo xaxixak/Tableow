@@ -1,4 +1,4 @@
-import { memo, useState } from "react";
+import { memo } from "react";
 import {
   BaseEdge,
   EdgeLabelRenderer,
@@ -6,7 +6,6 @@ import {
   type EdgeProps,
 } from "@xyflow/react";
 import { useWorkflowStore } from "../../store/workflowStore.ts";
-import { ExpandedEdgeFlow } from "./ExpandedEdgeFlow.tsx";
 import { isVirtualId } from "../../utils/virtualNodes.ts";
 import type { EdgeSubStep } from "../../types/index.ts";
 
@@ -33,7 +32,7 @@ function SubStepEdge({
 }: EdgeProps) {
   const isExpanded = useWorkflowStore((s) => s.expandedEdgeIds.has(id));
   const toggleEdgeExpand = useWorkflowStore((s) => s.toggleEdgeExpand);
-  const [showInlinePanel, setShowInlinePanel] = useState(false);
+  const openEdgeDetailModal = useWorkflowStore((s) => s.openEdgeDetailModal);
 
   const [edgePath, labelX, labelY] = getSmoothStepPath({
     sourceX,
@@ -60,7 +59,7 @@ function SubStepEdge({
   const hasSubSteps = stepCount > 0;
   const edgeLabel = edgeData?.number || edgeData?.label || "";
 
-  // ── Expanded mode: faint dashed path + collapse label (still interactive) ──
+  // ── Expanded mode: faint dashed path + collapse label offset above ──
   if (isExpanded && hasSubSteps) {
     return (
       <>
@@ -71,29 +70,46 @@ function SubStepEdge({
             stroke: "#f59e0b",
             strokeWidth: 2,
             strokeDasharray: "6 4",
-            opacity: 0.3,
+            opacity: 0.15,
           }}
         />
         <EdgeLabelRenderer>
           <div
             style={{
               position: "absolute",
-              transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`,
+              transform: `translate(-50%, -50%) translate(${labelX}px,${labelY - 50}px)`,
               pointerEvents: "all",
+              zIndex: 10,
             }}
             className="nopan nodrag"
           >
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                toggleEdgeExpand(id);
-              }}
-              className="flex items-center gap-1 px-2 py-1 rounded-md bg-amber-100 dark:bg-amber-900/30 border border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300 text-[10px] font-medium hover:bg-amber-200 dark:hover:bg-amber-900/50 transition-colors cursor-pointer"
-              title="Click to collapse"
-            >
-              <span>{edgeLabel}</span>
-              <span className="text-amber-500">▲ collapse</span>
-            </button>
+            <div className="flex items-center gap-1">
+              {edgeLabel && (
+                <span className="px-2 py-1 rounded-full bg-amber-500/80 text-white text-[10px] font-semibold">
+                  {edgeLabel}
+                </span>
+              )}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  openEdgeDetailModal(id);
+                }}
+                className="px-2.5 py-1 rounded-full bg-blue-500 dark:bg-blue-600 border border-blue-600 dark:border-blue-500 text-white text-[10px] font-semibold hover:bg-blue-600 dark:hover:bg-blue-500 transition-colors cursor-pointer shadow-md"
+                title="Edit connection detail"
+              >
+                Edit
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleEdgeExpand(id);
+                }}
+                className="px-2.5 py-1 rounded-full bg-amber-500 dark:bg-amber-600 border border-amber-600 dark:border-amber-500 text-white text-[10px] font-semibold hover:bg-amber-600 dark:hover:bg-amber-500 transition-colors cursor-pointer shadow-md"
+                title="Collapse sub-steps"
+              >
+                ▲ Collapse
+              </button>
+            </div>
           </div>
         </EdgeLabelRenderer>
       </>
@@ -135,27 +151,20 @@ function SubStepEdge({
               </span>
             )}
 
-            {/* Orange badge with sub-step count — click to show inline panel */}
+            {/* Orange badge with sub-step count — click to expand on canvas */}
             {hasSubSteps && (
               <div
                 onClick={(e) => {
                   e.stopPropagation();
-                  setShowInlinePanel(!showInlinePanel);
+                  toggleEdgeExpand(id);
                 }}
                 className="flex items-center justify-center w-5 h-5 rounded-full bg-amber-500 text-white text-[10px] font-bold border-2 border-white dark:border-zinc-800 shadow-sm cursor-pointer hover:scale-110 transition-transform"
-                title={`${stepCount} sub-step${stepCount !== 1 ? "s" : ""} — click to quick-edit, double-click edge to expand`}
+                title={`${stepCount} sub-step${stepCount !== 1 ? "s" : ""} — click to expand`}
               >
                 {stepCount}
               </div>
             )}
           </div>
-
-          {/* Inline panel (popover) — shown on badge click */}
-          {showInlinePanel && hasSubSteps && (
-            <div className="mt-2">
-              <ExpandedEdgeFlow edgeId={id} onClose={() => setShowInlinePanel(false)} />
-            </div>
-          )}
         </div>
       </EdgeLabelRenderer>
     </>

@@ -1,7 +1,6 @@
-import { useState, useMemo, useCallback } from "react";
+import { useMemo, useCallback } from "react";
 import { ArrowRight, ExternalLink, Link2 } from "lucide-react";
 import { Modal } from "./Modal";
-import { EdgeDetailModal } from "./EdgeDetailModal";
 import { useWorkflowStore } from "../../store/workflowStore.ts";
 import { cn } from "../../lib/utils.ts";
 
@@ -14,8 +13,7 @@ export function LinkOverviewModal({ isOpen, onClose }: LinkOverviewModalProps) {
   const edges = useWorkflowStore((s) => s.edges);
   const nodes = useWorkflowStore((s) => s.nodes);
   const selectEdge = useWorkflowStore((s) => s.selectEdge);
-
-  const [detailEdgeId, setDetailEdgeId] = useState<string | null>(null);
+  const openEdgeDetailModal = useWorkflowStore((s) => s.openEdgeDetailModal);
 
   const nodeMap = useMemo(() => {
     const map = new Map<string, string>();
@@ -39,8 +37,8 @@ export function LinkOverviewModal({ isOpen, onClose }: LinkOverviewModalProps) {
   );
 
   const handleOpenDetail = useCallback((edgeId: string) => {
-    setDetailEdgeId(edgeId);
-  }, []);
+    openEdgeDetailModal(edgeId);
+  }, [openEdgeDetailModal]);
 
   const handleSelectEdge = useCallback(
     (edgeId: string) => {
@@ -159,14 +157,6 @@ export function LinkOverviewModal({ isOpen, onClose }: LinkOverviewModalProps) {
         )}
       </Modal>
 
-      {/* Edge detail sub-modal */}
-      {detailEdgeId && (
-        <EdgeDetailModal
-          isOpen={!!detailEdgeId}
-          onClose={() => setDetailEdgeId(null)}
-          edgeId={detailEdgeId}
-        />
-      )}
     </>
   );
 }

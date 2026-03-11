@@ -172,6 +172,9 @@ export interface WorkflowState {
   removeEdge: (id: string) => void
   selectEdge: (id: string | null) => void
   selectedEdgeId: string | null
+  edgeDetailModalId: string | null
+  openEdgeDetailModal: (id: string) => void
+  closeEdgeDetailModal: () => void
   updateEdge: (
     id: string,
     data: Partial<{ label: string; description: string; properties: Record<string, unknown>; subSteps: EdgeSubStep[] }>
@@ -322,6 +325,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   metadata: createEmptyMetadata(),
   selectedNodeId: null,
   selectedEdgeId: null,
+  edgeDetailModalId: null,
   expandedEdgeIds: new Set<string>(),
   isCreatingConnection: false,
   viewMode: 'grid',
@@ -1485,6 +1489,14 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
 
   selectEdge: (id) => {
     set({ selectedEdgeId: id, selectedNodeId: null })
+  },
+
+  openEdgeDetailModal: (id) => {
+    set({ edgeDetailModalId: id })
+  },
+
+  closeEdgeDetailModal: () => {
+    set({ edgeDetailModalId: null })
   },
 
   toggleEdgeExpand: (id) => {

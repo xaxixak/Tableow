@@ -5,6 +5,7 @@ import NodePalette from "./components/Palette/NodePalette.tsx";
 import PropertiesPanel from "./components/Properties/PropertiesPanel.tsx";
 import WorkflowCanvas from "./components/Canvas/WorkflowCanvas.tsx";
 import GridView from "./components/Grid/GridView.tsx";
+import { EdgeDetailModal } from "./components/Modal/EdgeDetailModal.tsx";
 import { useWorkflowStore } from "./store/workflowStore.ts";
 import { registerAllNodes } from "./nodes/index.ts";
 import "./App.css";
@@ -15,6 +16,8 @@ registerAllNodes();
 export default function App() {
   const viewMode = useWorkflowStore((s) => s.viewMode);
   const darkMode = useWorkflowStore((s) => s.darkMode);
+  const edgeDetailModalId = useWorkflowStore((s) => s.edgeDetailModalId);
+  const closeEdgeDetailModal = useWorkflowStore((s) => s.closeEdgeDetailModal);
 
   // Apply dark mode class on mount and when it changes
   useEffect(() => {
@@ -44,6 +47,15 @@ export default function App() {
           {/* Right sidebar - Properties */}
           <PropertiesPanel />
         </div>
+
+        {/* Global Edge Detail Modal (triggered from canvas expand Edit button) */}
+        {edgeDetailModalId && (
+          <EdgeDetailModal
+            isOpen={true}
+            onClose={closeEdgeDetailModal}
+            edgeId={edgeDetailModalId}
+          />
+        )}
       </div>
     </ReactFlowProvider>
   );
