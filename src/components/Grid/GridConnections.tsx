@@ -76,7 +76,7 @@ function GridConnections() {
   return (
     <svg
       ref={svgRef}
-      className="absolute inset-0 z-10"
+      className="absolute inset-0 z-0"
       width={dimensions.width || "100%"}
       height={dimensions.height || "100%"}
       style={{ overflow: "visible", pointerEvents: "none" }}
