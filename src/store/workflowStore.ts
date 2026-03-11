@@ -138,6 +138,7 @@ export interface WorkflowState {
     category?: string
   }) => void
   removeCustomNodeType: (type: string) => void
+  renumberAll: () => void
 
   // Grid seeding
   seedGrid: (rows: number, cols: number) => void
@@ -825,6 +826,17 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     const slug = input.label.toLowerCase().replace(/[^a-z0-9]+/g, '-')
     const type = `custom.${slug}-${crypto.randomUUID().slice(0, 8)}`
     const ports = baseTypeToPorts(input.baseType)
+
+    // Find or create category to assign number
+    let categoryDef = state.customCategories.find((c) => c.path === input.category)
+    let updatedCategories = state.customCategories
+    if (!categoryDef) {
+      const number = getNextCategoryNumber(state.customCategories)
+      categoryDef = { path: input.category, number, order: state.customCategories.length }
+      updatedCategories = [...state.customCategories, categoryDef]
+    }
+    const nodeNumber = getNextNodeNumber(categoryDef.number, state.customNodeTypes)
+
     const def: NodeDefinition = {
       type,
       label: input.label,
@@ -839,9 +851,12 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       flowType: input.baseType as NodeDefinition['flowType'],
       customizable: true,
       isCustom: true,
+      number: nodeNumber,
+      categoryNumber: categoryDef.number,
     }
     nodeRegistry.register(def)
     set({
+      customCategories: updatedCategories,
       customNodeTypes: [...state.customNodeTypes, def],
       registryVersion: state.registryVersion + 1,
     })
@@ -883,6 +898,42 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     nodeRegistry.unregister(type)
     set({
       customNodeTypes: state.customNodeTypes.filter((d) => d.type !== type),
+      registryVersion: state.registryVersion + 1,
+    })
+  },
+
+  renumberAll: () => {
+    const state = get()
+    // Collect ALL unique category paths from both customCategories and node definitions
+    const allPaths = new Set<string>()
+    for (const cat of state.customCategories) allPaths.add(cat.path)
+    for (const def of state.customNodeTypes) {
+      if (def.category) allPaths.add(def.category)
+    }
+    // Build complete category list, sorted alphabetically, numbered sequentially
+    const sortedPaths = [...allPaths].sort((a, b) => a.localeCompare(b))
+    const renumberedCats: CategoryDefinition[] = sortedPaths.map((path, i) => {
+      const existing = state.customCategories.find((c) => c.path === path)
+      return { path, number: `C${i + 1}`, order: i, ...(existing ? {} : {}) }
+    })
+    // Re-number all nodes within each category: C1-001, C1-002, ...
+    const counters = new Map<string, number>()
+    const renumberedNodes = state.customNodeTypes.map((def) => {
+      const catDef = renumberedCats.find((c) => c.path === def.category)
+      if (!catDef) return def
+      const count = (counters.get(catDef.number) ?? 0) + 1
+      counters.set(catDef.number, count)
+      const updated = {
+        ...def,
+        categoryNumber: catDef.number,
+        number: `${catDef.number}-${count.toString().padStart(3, '0')}`,
+      }
+      nodeRegistry.register(updated)
+      return updated
+    })
+    set({
+      customCategories: renumberedCats,
+      customNodeTypes: renumberedNodes,
       registryVersion: state.registryVersion + 1,
     })
   },

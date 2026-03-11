@@ -19,6 +19,7 @@ import {
   GitMerge,
   Copy,
   Clipboard,
+  Hash,
 } from "lucide-react";
 import { useWorkflowStore } from "../../store/workflowStore.ts";
 import type { Workflow } from "../../types/index.ts";
@@ -50,6 +51,7 @@ export default function Toolbar() {
   const pasteNodes = useWorkflowStore((s) => s.pasteNodes);
   const selectedNodeIds = useWorkflowStore((s) => s.selectedNodeIds);
   const clipboardExists = useWorkflowStore((s) => s.clipboard !== null);
+  const renumberAll = useWorkflowStore((s) => s.renumberAll);
 
   const [editingName, setEditingName] = useState(false);
   const [nameValue, setNameValue] = useState(metadata.name);
@@ -386,6 +388,23 @@ export default function Toolbar() {
       >
         <Link2 className="w-3.5 h-3.5" />
         <span className="hidden sm:inline">Links</span>
+      </button>
+
+      {/* Auto-number */}
+      <button
+        onClick={() => {
+          if (window.confirm("Re-assign all category and node numbers sequentially?")) {
+            renumberAll();
+          }
+        }}
+        className={cn(
+          "flex items-center gap-1.5 px-2.5 py-1 text-sm rounded-md transition-colors",
+          "text-slate-500 hover:text-slate-700 hover:bg-slate-100",
+          "dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-zinc-700"
+        )}
+        title="Auto-number all categories and nodes"
+      >
+        <Hash className="w-3.5 h-3.5" />
       </button>
 
       {/* Spacer */}

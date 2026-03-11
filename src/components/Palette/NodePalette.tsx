@@ -947,20 +947,22 @@ export default function NodePalette() {
 
         {/* My Nodes (Custom) */}
         <div>
-          <button
-            onClick={() => setMyNodesOpen(!myNodesOpen)}
-            className="flex items-center gap-2 w-full px-3 py-2 text-xs font-semibold bg-blue-100 dark:bg-blue-900/30 hover:bg-blue-200 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-300 uppercase tracking-wider"
-          >
-            {myNodesOpen ? (
-              <ChevronDown className="w-3.5 h-3.5" />
-            ) : (
-              <ChevronRight className="w-3.5 h-3.5" />
-            )}
-            <span>My Nodes</span>
-            <span className="ml-auto text-blue-600 dark:text-blue-400 font-normal normal-case">
-              {customTree.children.size} categories
-            </span>
-          </button>
+          <div className="flex items-center bg-blue-100 dark:bg-blue-900/30">
+            <button
+              onClick={() => setMyNodesOpen(!myNodesOpen)}
+              className="flex items-center gap-2 flex-1 px-3 py-2 text-xs font-semibold hover:bg-blue-200 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-300 uppercase tracking-wider"
+            >
+              {myNodesOpen ? (
+                <ChevronDown className="w-3.5 h-3.5" />
+              ) : (
+                <ChevronRight className="w-3.5 h-3.5" />
+              )}
+              <span>My Nodes</span>
+              <span className="ml-auto text-blue-600 dark:text-blue-400 font-normal normal-case">
+                {customTree.children.size} categories
+              </span>
+            </button>
+          </div>
           {myNodesOpen && (
             <div className="py-1">
               {customTree.children.size === 0 ? (
