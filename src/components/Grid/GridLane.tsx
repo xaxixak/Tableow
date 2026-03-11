@@ -1,5 +1,5 @@
 import { memo, useState, useCallback, useMemo, useRef, useEffect, type DragEvent } from "react";
-import { ChevronDown, ChevronRight, Plus, Trash2, Edit3, Palette, GripVertical } from "lucide-react";
+import { ChevronDown, ChevronRight, Plus, Trash2, Edit3, Palette, GripVertical, ArrowUp, ArrowDown } from "lucide-react";
 import { useWorkflowStore } from "../../store/workflowStore.ts";
 import { cn } from "../../lib/utils.ts";
 import type { LaneDefinition, StageDefinition, GridPlacement } from "../../types/grid.ts";
@@ -41,6 +41,7 @@ function GridLane({
   const removeLane = useWorkflowStore((s) => s.removeLane);
   const addLane = useWorkflowStore((s) => s.addLane);
   const reorderLanes = useWorkflowStore((s) => s.reorderLanes);
+  const insertLane = useWorkflowStore((s) => s.insertLane);
 
   const [collapsed, setCollapsed] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -122,6 +123,22 @@ function GridLane({
     }
     closeContextMenu();
   }, [childLanes, lane.id, addLane, closeContextMenu]);
+
+  const handleInsertAbove = useCallback(() => {
+    const name = window.prompt("Lane name:");
+    if (name?.trim()) {
+      insertLane({ label: name.trim(), order: 0, parentId: lane.parentId }, lane.id, "before");
+    }
+    closeContextMenu();
+  }, [lane.id, lane.parentId, insertLane, closeContextMenu]);
+
+  const handleInsertBelow = useCallback(() => {
+    const name = window.prompt("Lane name:");
+    if (name?.trim()) {
+      insertLane({ label: name.trim(), order: 0, parentId: lane.parentId }, lane.id, "after");
+    }
+    closeContextMenu();
+  }, [lane.id, lane.parentId, insertLane, closeContextMenu]);
 
   const handleColorChange = useCallback(
     (color: string | undefined) => {
@@ -303,6 +320,21 @@ function GridLane({
           >
             <Plus className="w-3.5 h-3.5" />
             Add Sub-lane
+          </button>
+          <hr className="my-1 border-slate-100 dark:border-zinc-700" />
+          <button
+            onClick={handleInsertAbove}
+            className="flex items-center gap-2 w-full px-3 py-1.5 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-zinc-800"
+          >
+            <ArrowUp className="w-3.5 h-3.5" />
+            Insert Above
+          </button>
+          <button
+            onClick={handleInsertBelow}
+            className="flex items-center gap-2 w-full px-3 py-1.5 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-zinc-800"
+          >
+            <ArrowDown className="w-3.5 h-3.5" />
+            Insert Below
           </button>
 
           {/* Color submenu */}

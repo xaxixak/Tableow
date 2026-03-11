@@ -99,6 +99,8 @@ export interface WorkflowState {
   addStage: (stage: Omit<StageDefinition, 'id'>) => void
   removeStage: (id: string) => void
   updateStage: (id: string, updates: Partial<StageDefinition>) => void
+  insertLane: (lane: Omit<LaneDefinition, 'id'>, referenceId: string, position: 'before' | 'after') => void
+  insertStage: (stage: Omit<StageDefinition, 'id'>, referenceId: string, position: 'before' | 'after') => void
   reorderLanes: (sourceId: string, targetId: string) => void
   reorderStages: (sourceId: string, targetId: string) => void
   setLaneColumnWidth: (width: number) => void
@@ -1027,6 +1029,38 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       gridConfig: newGridConfig,
       ...pushHistory({ ...state, gridConfig: newGridConfig }),
     })
+  },
+
+  insertLane: (lane, referenceId, position) => {
+    const state = get()
+    const ref = state.gridConfig.lanes.find((l) => l.id === referenceId)
+    if (!ref) return
+    const newLane: LaneDefinition = { ...lane, id: crypto.randomUUID(), parentId: ref.parentId }
+    const insertOrder = position === 'before' ? ref.order : ref.order + 1
+    const shiftedLanes = state.gridConfig.lanes.map((l) => {
+      if (l.parentId !== ref.parentId) return l
+      if (l.order >= insertOrder) return { ...l, order: l.order + 1 }
+      return l
+    })
+    newLane.order = insertOrder
+    const newGridConfig = { ...state.gridConfig, lanes: [...shiftedLanes, newLane] }
+    set({ gridConfig: newGridConfig, ...pushHistory({ ...state, gridConfig: newGridConfig }) })
+  },
+
+  insertStage: (stage, referenceId, position) => {
+    const state = get()
+    const ref = state.gridConfig.stages.find((s) => s.id === referenceId)
+    if (!ref) return
+    const newStage: StageDefinition = { ...stage, id: crypto.randomUUID(), parentId: ref.parentId }
+    const insertOrder = position === 'before' ? ref.order : ref.order + 1
+    const shiftedStages = state.gridConfig.stages.map((s) => {
+      if (s.parentId !== ref.parentId) return s
+      if (s.order >= insertOrder) return { ...s, order: s.order + 1 }
+      return s
+    })
+    newStage.order = insertOrder
+    const newGridConfig = { ...state.gridConfig, stages: [...shiftedStages, newStage] }
+    set({ gridConfig: newGridConfig, ...pushHistory({ ...state, gridConfig: newGridConfig }) })
   },
 
   removeStage: (id) => {

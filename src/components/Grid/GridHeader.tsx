@@ -1,5 +1,5 @@
 import { memo, useState, useCallback, useMemo, useRef, useEffect, type DragEvent } from "react";
-import { Plus, Trash2, Edit3, GripHorizontal } from "lucide-react";
+import { Plus, Trash2, Edit3, GripHorizontal, ArrowLeft, ArrowRight } from "lucide-react";
 import { useWorkflowStore } from "../../store/workflowStore.ts";
 import { cn } from "../../lib/utils.ts";
 import type { StageDefinition } from "../../types/grid.ts";
@@ -78,6 +78,7 @@ function GridHeader({ stages }: GridHeaderProps) {
   const removeStage = useWorkflowStore((s) => s.removeStage);
   const addStage = useWorkflowStore((s) => s.addStage);
   const reorderStages = useWorkflowStore((s) => s.reorderStages);
+  const insertStage = useWorkflowStore((s) => s.insertStage);
   const laneColumnWidth = useWorkflowStore((s) => s.gridConfig.laneColumnWidth);
   const setLaneColumnWidth = useWorkflowStore((s) => s.setLaneColumnWidth);
 
@@ -170,6 +171,24 @@ function GridHeader({ stages }: GridHeaderProps) {
     }
     closeContextMenu();
   }, [contextMenu, stages, addStage, closeContextMenu]);
+
+  const handleInsertBefore = useCallback(() => {
+    if (!contextMenu) return;
+    const name = window.prompt("Stage name:");
+    if (name?.trim()) {
+      insertStage({ label: name.trim(), order: 0 }, contextMenu.stageId, "before");
+    }
+    closeContextMenu();
+  }, [contextMenu, insertStage, closeContextMenu]);
+
+  const handleInsertAfter = useCallback(() => {
+    if (!contextMenu) return;
+    const name = window.prompt("Stage name:");
+    if (name?.trim()) {
+      insertStage({ label: name.trim(), order: 0 }, contextMenu.stageId, "after");
+    }
+    closeContextMenu();
+  }, [contextMenu, insertStage, closeContextMenu]);
 
   // Stage drag-to-reorder handlers
   const handleStageDragStart = useCallback(
@@ -406,6 +425,21 @@ function GridHeader({ stages }: GridHeaderProps) {
           >
             <Plus className="w-3.5 h-3.5" />
             Add Sub-stage
+          </button>
+          <hr className="my-1 border-slate-100 dark:border-zinc-700" />
+          <button
+            onClick={handleInsertBefore}
+            className="flex items-center gap-2 w-full px-3 py-1.5 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-zinc-800"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            Insert Before
+          </button>
+          <button
+            onClick={handleInsertAfter}
+            className="flex items-center gap-2 w-full px-3 py-1.5 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-zinc-800"
+          >
+            <ArrowRight className="w-3.5 h-3.5" />
+            Insert After
           </button>
           <hr className="my-1 border-slate-100 dark:border-zinc-700" />
           <button
