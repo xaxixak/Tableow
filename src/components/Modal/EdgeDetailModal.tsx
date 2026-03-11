@@ -1,9 +1,41 @@
 import { useState, useCallback, useMemo, useRef, useEffect, type DragEvent } from "react";
-import { Plus, X, GripVertical, ArrowRight, Search } from "lucide-react";
+import { Plus, X, GripVertical, ArrowRight, Search, ChevronDown, ChevronRight } from "lucide-react";
 import { Modal } from "./Modal";
 import { useWorkflowStore } from "../../store/workflowStore.ts";
+import { nodeRegistry } from "../../registry/index.ts";
 import { cn } from "../../lib/utils.ts";
-import type { EdgeSubStep } from "../../types/index.ts";
+import type { EdgeSubStep, NodeDefinition } from "../../types/index.ts";
+
+interface CategoryGroup {
+  name: string;
+  fullPath: string;
+  definitions: NodeDefinition[];
+  children: Map<string, CategoryGroup>;
+}
+
+function buildCategoryGroups(definitions: NodeDefinition[]): CategoryGroup {
+  const root: CategoryGroup = { name: "", fullPath: "", definitions: [], children: new Map() };
+  for (const def of definitions) {
+    const parts = def.category.split("/").map((p) => p.trim()).filter(Boolean);
+    let current = root;
+    let pathSoFar = "";
+    for (const part of parts) {
+      pathSoFar = pathSoFar ? `${pathSoFar}/${part}` : part;
+      if (!current.children.has(part)) {
+        current.children.set(part, { name: part, fullPath: pathSoFar, definitions: [], children: new Map() });
+      }
+      current = current.children.get(part)!;
+    }
+    current.definitions.push(def);
+  }
+  return root;
+}
+
+function countDefsRecursive(group: CategoryGroup): number {
+  let count = group.definitions.length;
+  for (const child of group.children.values()) count += countDefsRecursive(child);
+  return count;
+}
 
 interface EdgeDetailModalProps {
   isOpen: boolean;
@@ -15,6 +47,8 @@ export function EdgeDetailModal({ isOpen, onClose, edgeId }: EdgeDetailModalProp
   const edges = useWorkflowStore((s) => s.edges);
   const nodes = useWorkflowStore((s) => s.nodes);
   const updateEdge = useWorkflowStore((s) => s.updateEdge);
+  const customCategories = useWorkflowStore((s) => s.customCategories);
+  const registryVersion = useWorkflowStore((s) => s.registryVersion);
 
   const edge = edges.find((e) => e.id === edgeId);
   const sourceNode = nodes.find((n) => n.id === edge?.source);
@@ -29,22 +63,32 @@ export function EdgeDetailModal({ isOpen, onClose, edgeId }: EdgeDetailModalProp
   const [nodeDropIndex, setNodeDropIndex] = useState<number | null>(null);
   const editInputRef = useRef<HTMLInputElement>(null);
 
-  // Available nodes for the picker (exclude source/target since they're fixed chips)
-  const availableNodes = useMemo(() => {
-    return nodes.filter(
-      (n) => n.id !== edge?.source && n.id !== edge?.target
-    );
-  }, [nodes, edge?.source, edge?.target]);
+  // All node definitions from the registry, organized by category
+  const allDefinitions = useMemo(() => {
+    return nodeRegistry.getAll();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [registryVersion]);
 
-  const filteredNodes = useMemo(() => {
-    if (!searchQuery.trim()) return availableNodes;
+  const filteredDefinitions = useMemo(() => {
+    if (!searchQuery.trim()) return allDefinitions;
     const q = searchQuery.toLowerCase();
-    return availableNodes.filter((n) => {
-      const label = (n.data?.label || "").toLowerCase();
-      const type = (n.data?.definitionType || "").toLowerCase();
-      return label.includes(q) || type.includes(q);
+    return allDefinitions.filter((d) => {
+      return d.label.toLowerCase().includes(q) ||
+        d.category.toLowerCase().includes(q) ||
+        d.type.toLowerCase().includes(q);
     });
-  }, [availableNodes, searchQuery]);
+  }, [allDefinitions, searchQuery]);
+
+  const categoryTree = useMemo(() => {
+    return buildCategoryGroups(filteredDefinitions);
+  }, [filteredDefinitions]);
+
+  // Category number lookup
+  const categoryNumberMap = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const cat of customCategories) map.set(cat.path, cat.number);
+    return map;
+  }, [customCategories]);
 
   useEffect(() => {
     if (editingStepId) {
@@ -153,10 +197,10 @@ export function EdgeDetailModal({ isOpen, onClose, edgeId }: EdgeDetailModalProp
     setDragOverIndex(null);
   }, []);
 
-  // ── Drag node from palette into flow ──
+  // ── Drag node definition from palette into flow ──
   const handleNodeDragStart = useCallback(
-    (e: DragEvent<HTMLDivElement>, nodeId: string, label: string) => {
-      e.dataTransfer.setData("application/edge-node-add", JSON.stringify({ nodeId, label }));
+    (e: DragEvent<HTMLDivElement>, label: string) => {
+      e.dataTransfer.setData("application/edge-node-add", JSON.stringify({ nodeId: "", label }));
       e.dataTransfer.effectAllowed = "copy";
     },
     []
@@ -329,14 +373,14 @@ export function EdgeDetailModal({ isOpen, onClose, edgeId }: EdgeDetailModalProp
         </div>
       </div>
 
-      {/* ── Available Nodes palette (always visible) ── */}
+      {/* ── Available Nodes palette (category-based) ── */}
       <div className="mt-2 pt-3 border-t border-slate-200 dark:border-zinc-700">
         <div className="flex items-center justify-between mb-2">
           <span className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
             Available Nodes — drag into flow
           </span>
           <span className="text-xs text-slate-400 dark:text-zinc-500">
-            {availableNodes.length} node{availableNodes.length !== 1 ? "s" : ""}
+            {allDefinitions.length} node{allDefinitions.length !== 1 ? "s" : ""}
           </span>
         </div>
 
@@ -356,40 +400,23 @@ export function EdgeDetailModal({ isOpen, onClose, edgeId }: EdgeDetailModalProp
           />
         </div>
 
-        {/* Draggable node list */}
-        <div className="max-h-[180px] overflow-y-auto rounded-md border border-slate-200 dark:border-zinc-600 bg-white dark:bg-zinc-700">
-          {filteredNodes.length === 0 ? (
+        {/* Category-based node list */}
+        <div className="max-h-[260px] overflow-y-auto rounded-md border border-slate-200 dark:border-zinc-600 bg-white dark:bg-zinc-800/50">
+          {categoryTree.children.size === 0 ? (
             <div className="px-3 py-4 text-center text-xs text-slate-400 dark:text-zinc-500">
-              {availableNodes.length === 0 ? "No other nodes on the dashboard" : "No matching nodes"}
+              No matching nodes
             </div>
           ) : (
-            filteredNodes.map((node) => {
-              const label = node.data?.label || node.type || "Node";
-              return (
-                <div
-                  key={node.id}
-                  draggable
-                  onDragStart={(e) => handleNodeDragStart(e, node.id, label)}
-                  className={cn(
-                    "flex items-center gap-2 w-full px-3 py-2 text-left text-sm",
-                    "hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors",
-                    "border-b border-slate-100 dark:border-zinc-600 last:border-b-0",
-                    "cursor-grab active:cursor-grabbing select-none"
-                  )}
-                >
-                  <GripVertical className="w-3 h-3 text-slate-300 dark:text-zinc-600 shrink-0" />
-                  <div className="w-2 h-2 rounded-full bg-blue-400 dark:bg-blue-500 shrink-0" />
-                  <span className="font-medium text-slate-700 dark:text-slate-200 truncate">
-                    {label}
-                  </span>
-                  {node.data?.definitionType && (
-                    <span className="ml-auto text-xs text-slate-400 dark:text-zinc-500 truncate max-w-[120px]">
-                      {node.data.definitionType.split(".").pop()}
-                    </span>
-                  )}
-                </div>
-              );
-            })
+            Array.from(categoryTree.children.values()).map((group) => (
+              <EdgeNodeCategory
+                key={group.fullPath}
+                group={group}
+                depth={0}
+                defaultOpen={searchQuery.trim().length > 0}
+                categoryNumberMap={categoryNumberMap}
+                onDragStart={handleNodeDragStart}
+              />
+            ))
           )}
         </div>
       </div>
@@ -401,5 +428,112 @@ export function EdgeDetailModal({ isOpen, onClose, edgeId }: EdgeDetailModalProp
         </p>
       )}
     </Modal>
+  );
+}
+
+// ── Collapsible category section for the node picker ──
+
+const DEPTH_COLORS = [
+  "bg-sky-50 dark:bg-sky-900/30",
+  "bg-emerald-50 dark:bg-emerald-900/30",
+  "bg-amber-50 dark:bg-amber-900/30",
+  "bg-violet-50 dark:bg-violet-900/30",
+];
+
+function EdgeNodeCategory({
+  group,
+  depth,
+  defaultOpen,
+  categoryNumberMap,
+  onDragStart,
+}: {
+  group: CategoryGroup;
+  depth: number;
+  defaultOpen: boolean;
+  categoryNumberMap: Map<string, string>;
+  onDragStart: (e: DragEvent<HTMLDivElement>, label: string) => void;
+}) {
+  const [open, setOpen] = useState(defaultOpen || depth === 0);
+
+  // Auto-open when searching
+  useEffect(() => {
+    if (defaultOpen) setOpen(true);
+  }, [defaultOpen]);
+
+  const total = countDefsRecursive(group);
+  const catNumber = categoryNumberMap.get(group.fullPath);
+  const bgColor = DEPTH_COLORS[depth % DEPTH_COLORS.length];
+
+  return (
+    <div>
+      <button
+        onClick={() => setOpen(!open)}
+        className={cn(
+          "flex items-center gap-1.5 w-full px-2 py-1.5 text-xs font-semibold",
+          "text-slate-700 dark:text-slate-200 uppercase tracking-wider",
+          "hover:brightness-95 dark:hover:brightness-110 transition-all",
+          bgColor
+        )}
+        style={{ paddingLeft: `${8 + depth * 16}px` }}
+      >
+        {open ? (
+          <ChevronDown className="w-3 h-3 shrink-0" />
+        ) : (
+          <ChevronRight className="w-3 h-3 shrink-0" />
+        )}
+        {catNumber && (
+          <span className="font-mono text-[10px] text-slate-500 dark:text-slate-400">
+            {catNumber}:
+          </span>
+        )}
+        <span className="truncate">{group.name}</span>
+        <span className="ml-auto text-slate-400 dark:text-zinc-500 font-normal normal-case text-[10px]">
+          {total}
+        </span>
+      </button>
+
+      {open && (
+        <>
+          {/* Node definitions at this level */}
+          {group.definitions.map((def) => (
+            <div
+              key={def.type}
+              draggable
+              onDragStart={(e) => onDragStart(e, def.label)}
+              className={cn(
+                "flex items-center gap-2 w-full px-3 py-1.5 text-left text-sm",
+                "hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors",
+                "cursor-grab active:cursor-grabbing select-none"
+              )}
+              style={{ paddingLeft: `${20 + depth * 16}px` }}
+            >
+              {def.icon && (
+                <span className="text-sm leading-none shrink-0">{def.icon}</span>
+              )}
+              <span className="text-slate-700 dark:text-slate-200 truncate text-xs">
+                {def.number && (
+                  <span className="font-mono text-[10px] text-slate-400 dark:text-slate-500 mr-1">
+                    {def.number}:
+                  </span>
+                )}
+                {def.label}
+              </span>
+            </div>
+          ))}
+
+          {/* Nested subcategories */}
+          {Array.from(group.children.values()).map((child) => (
+            <EdgeNodeCategory
+              key={child.fullPath}
+              group={child}
+              depth={depth + 1}
+              defaultOpen={defaultOpen}
+              categoryNumberMap={categoryNumberMap}
+              onDragStart={onDragStart}
+            />
+          ))}
+        </>
+      )}
+    </div>
   );
 }
