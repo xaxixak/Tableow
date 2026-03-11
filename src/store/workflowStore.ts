@@ -27,6 +27,7 @@ import {
   getNextNodeNumber,
   getNextEdgeNumber,
 } from '@/utils/numbering.ts'
+import { mergeWorkflow, buildClipboardWorkflow } from '@/utils/mergeWorkflow.ts'
 
 interface HistoryEntry {
   nodes: WorkflowNode[]
@@ -192,6 +193,26 @@ export interface WorkflowState {
   redo: () => void
   canUndo: () => boolean
   canRedo: () => boolean
+
+  // Import/merge
+  importWorkflow: (workflow: Workflow, targetCell?: { laneId: string; stageId: string }) => void
+
+  // Multi-select & clipboard
+  selectedNodeIds: Set<string>
+  toggleNodeSelection: (id: string) => void
+  selectMultipleNodes: (ids: string[]) => void
+  clearNodeSelection: () => void
+  clipboard: Workflow | null
+  copySelectedNodes: () => void
+  pasteNodes: () => void
+
+  // Paste target cell
+  pasteTargetCell: { laneId: string; stageId: string } | null
+  setPasteTargetCell: (cell: { laneId: string; stageId: string } | null) => void
+
+  // Batch move / duplicate
+  placeNodes: (moves: Array<{ nodeId: string; laneId: string; stageId: string }>) => void
+  duplicateNodesToCell: (nodeIds: string[], laneId: string, stageId: string) => void
 }
 
 function pushHistory(state: {
@@ -214,6 +235,39 @@ function pushHistory(state: {
   return { history: newHistory, historyIndex: newHistory.length - 1 }
 }
 
+
+/**
+ * Returns leaf item IDs in display order (DFS walk of hierarchy).
+ * Works for both lanes and stages.
+ */
+function getOrderedLeafIds(items: Array<{ id: string; parentId?: string; order: number }>): string[] {
+  const childrenMap = new Map<string | undefined, typeof items>()
+  for (const item of items) {
+    const parentKey = item.parentId ?? undefined
+    if (!childrenMap.has(parentKey)) childrenMap.set(parentKey, [])
+    childrenMap.get(parentKey)!.push(item)
+  }
+  for (const [, children] of childrenMap) {
+    children.sort((a, b) => a.order - b.order)
+  }
+  const hasChildrenSet = new Set<string>()
+  for (const item of items) {
+    if (item.parentId) hasChildrenSet.add(item.parentId)
+  }
+  const result: string[] = []
+  function walk(parentId: string | undefined) {
+    const children = childrenMap.get(parentId) ?? []
+    for (const child of children) {
+      if (hasChildrenSet.has(child.id)) {
+        walk(child.id)
+      } else {
+        result.push(child.id)
+      }
+    }
+  }
+  walk(undefined)
+  return result
+}
 
 function baseTypeToPorts(baseType: string): { inputs: NodeDefinition['inputs']; outputs: NodeDefinition['outputs'] } {
   switch (baseType) {
@@ -277,6 +331,9 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   registryVersion: 0,
   history: [{ nodes: [], edges: [], gridConfig: EMPTY_GRID }],
   historyIndex: 0,
+  selectedNodeIds: new Set<string>(),
+  clipboard: null,
+  pasteTargetCell: null,
 
   setIsCreatingConnection: (isCreating) => {
     set({ isCreatingConnection: isCreating })
@@ -1281,7 +1338,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   },
 
   selectNode: (id) => {
-    set({ selectedNodeId: id, selectedEdgeId: null })
+    set({ selectedNodeId: id, selectedEdgeId: null, selectedNodeIds: id ? new Set([id]) : new Set<string>() })
   },
 
   // --- Edge operations ---
@@ -1588,4 +1645,234 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
 
   canUndo: () => get().historyIndex > 0,
   canRedo: () => get().historyIndex < get().history.length - 1,
+
+  // --- Import/Merge ---
+
+  importWorkflow: (workflow, targetCell) => {
+    const state = get()
+
+    const context = {
+      existingNodes: state.nodes,
+      existingEdges: state.edges,
+      existingGridConfig: state.gridConfig,
+      existingCategories: state.customCategories,
+      existingNodeTypes: state.customNodeTypes,
+    }
+
+    const result = mergeWorkflow(context, workflow)
+
+    // Register new custom node types in the registry
+    for (const def of result.newNodeTypes) {
+      nodeRegistry.register(def)
+    }
+
+    // If a target cell is specified, preserve relative cell positions
+    // (offset from the top-left-most node) anchored at the target cell
+    let finalPlacements = result.newPlacements
+    let finalNodes = result.newNodes
+    if (targetCell) {
+      // Build ordered leaf lists from the COMBINED grid (existing + new)
+      const allLanes = [...state.gridConfig.lanes, ...result.newLanes]
+      const allStages = [...state.gridConfig.stages, ...result.newStages]
+      const leafLaneIds = getOrderedLeafIds(allLanes)
+      const leafStageIds = getOrderedLeafIds(allStages)
+
+      const targetLaneIdx = leafLaneIds.indexOf(targetCell.laneId)
+      const targetStageIdx = leafStageIds.indexOf(targetCell.stageId)
+
+      if (targetLaneIdx !== -1 && targetStageIdx !== -1 && result.newPlacements.length > 0) {
+        // Find origin (top-left-most cell of the pasted nodes)
+        let minLaneIdx = Infinity
+        let minStageIdx = Infinity
+        for (const p of result.newPlacements) {
+          const li = leafLaneIds.indexOf(p.laneId)
+          const si = leafStageIds.indexOf(p.stageId)
+          if (li !== -1 && li < minLaneIdx) minLaneIdx = li
+          if (si !== -1 && si < minStageIdx) minStageIdx = si
+        }
+
+        // Build placement map for quick lookup
+        const placementByNode = new Map(result.newPlacements.map((p) => [p.nodeId, p]))
+
+        finalPlacements = []
+        finalNodes = result.newNodes.map((n) => {
+          const placement = placementByNode.get(n.id)
+          if (!placement) return n
+
+          const origLaneIdx = leafLaneIds.indexOf(placement.laneId)
+          const origStageIdx = leafStageIds.indexOf(placement.stageId)
+          const laneOffset = origLaneIdx !== -1 ? origLaneIdx - minLaneIdx : 0
+          const stageOffset = origStageIdx !== -1 ? origStageIdx - minStageIdx : 0
+
+          // Clamp to grid bounds
+          const newLaneIdx = Math.min(targetLaneIdx + laneOffset, leafLaneIds.length - 1)
+          const newStageIdx = Math.min(targetStageIdx + stageOffset, leafStageIds.length - 1)
+          const newLaneId = leafLaneIds[newLaneIdx]
+          const newStageId = leafStageIds[newStageIdx]
+
+          finalPlacements.push({ nodeId: n.id, laneId: newLaneId, stageId: newStageId })
+          return { ...n, data: { ...n.data, laneId: newLaneId, stageId: newStageId } }
+        })
+      } else {
+        // Fallback: put everything in target cell
+        finalPlacements = result.newNodes.map((n) => ({
+          nodeId: n.id,
+          laneId: targetCell.laneId,
+          stageId: targetCell.stageId,
+        }))
+        finalNodes = result.newNodes.map((n) => ({
+          ...n,
+          data: { ...n.data, laneId: targetCell.laneId, stageId: targetCell.stageId },
+        }))
+      }
+    }
+
+    const newNodes = [...state.nodes, ...finalNodes]
+    const newEdges = [...state.edges, ...result.newEdges]
+    const newGridConfig: GridConfig = {
+      lanes: [...state.gridConfig.lanes, ...result.newLanes],
+      stages: [...state.gridConfig.stages, ...result.newStages],
+      placements: [...state.gridConfig.placements, ...finalPlacements],
+      laneColumnWidth: state.gridConfig.laneColumnWidth,
+    }
+    const newCategories = [...state.customCategories, ...result.newCategories]
+    const newNodeTypes = [...state.customNodeTypes, ...result.newNodeTypes]
+
+    set({
+      nodes: newNodes,
+      edges: newEdges,
+      gridConfig: newGridConfig,
+      customCategories: newCategories,
+      customNodeTypes: newNodeTypes,
+      registryVersion: state.registryVersion + 1,
+      ...pushHistory({ ...state, nodes: newNodes, edges: newEdges, gridConfig: newGridConfig }),
+    })
+  },
+
+  // --- Multi-select & Clipboard ---
+
+  toggleNodeSelection: (id) => {
+    const state = get()
+    const next = new Set(state.selectedNodeIds)
+    if (next.has(id)) {
+      next.delete(id)
+    } else {
+      next.add(id)
+    }
+    set({ selectedNodeIds: next, selectedNodeId: next.size === 1 ? [...next][0] : null })
+  },
+
+  selectMultipleNodes: (ids) => {
+    set({ selectedNodeIds: new Set(ids), selectedNodeId: ids.length === 1 ? ids[0] : null })
+  },
+
+  clearNodeSelection: () => {
+    set({ selectedNodeIds: new Set<string>() })
+  },
+
+  copySelectedNodes: () => {
+    const state = get()
+    // Use multi-select if any, otherwise fall back to single selected node
+    let ids = state.selectedNodeIds
+    if (ids.size === 0 && state.selectedNodeId) {
+      ids = new Set([state.selectedNodeId])
+    }
+    if (ids.size === 0) return
+
+    const clipboard = buildClipboardWorkflow(
+      ids,
+      state.nodes,
+      state.edges,
+      state.gridConfig,
+      state.customNodeTypes,
+      state.customCategories,
+    )
+    set({ clipboard })
+  },
+
+  pasteNodes: () => {
+    const state = get()
+    if (!state.clipboard) return
+    get().importWorkflow(state.clipboard, state.pasteTargetCell ?? undefined)
+  },
+
+  setPasteTargetCell: (cell) => {
+    set({ pasteTargetCell: cell })
+  },
+
+  placeNodes: (moves) => {
+    const state = get()
+
+    // All moves share the same target cell (first entry)
+    const targetLaneId = moves[0].laneId
+    const targetStageId = moves[0].stageId
+
+    // Compute relative offsets to preserve multi-cell spread
+    const leafLaneIds = getOrderedLeafIds(state.gridConfig.lanes)
+    const leafStageIds = getOrderedLeafIds(state.gridConfig.stages)
+    const targetLaneIdx = leafLaneIds.indexOf(targetLaneId)
+    const targetStageIdx = leafStageIds.indexOf(targetStageId)
+
+    // Find origin (top-left of current positions)
+    let minLaneIdx = Infinity
+    let minStageIdx = Infinity
+    for (const move of moves) {
+      const p = state.gridConfig.placements.find((pl) => pl.nodeId === move.nodeId)
+      if (p) {
+        const li = leafLaneIds.indexOf(p.laneId)
+        const si = leafStageIds.indexOf(p.stageId)
+        if (li !== -1 && li < minLaneIdx) minLaneIdx = li
+        if (si !== -1 && si < minStageIdx) minStageIdx = si
+      }
+    }
+
+    let placements = [...state.gridConfig.placements]
+    let nodes = [...state.nodes]
+
+    for (const move of moves) {
+      const currentPlacement = state.gridConfig.placements.find((p) => p.nodeId === move.nodeId)
+      let newLaneId = targetLaneId
+      let newStageId = targetStageId
+
+      // Apply relative offset if we have valid indices
+      if (currentPlacement && targetLaneIdx !== -1 && targetStageIdx !== -1 && minLaneIdx !== Infinity) {
+        const origLaneIdx = leafLaneIds.indexOf(currentPlacement.laneId)
+        const origStageIdx = leafStageIds.indexOf(currentPlacement.stageId)
+        const laneOffset = origLaneIdx !== -1 ? origLaneIdx - minLaneIdx : 0
+        const stageOffset = origStageIdx !== -1 ? origStageIdx - minStageIdx : 0
+        const newLaneIdx = Math.min(targetLaneIdx + laneOffset, leafLaneIds.length - 1)
+        const newStageIdx = Math.min(targetStageIdx + stageOffset, leafStageIds.length - 1)
+        newLaneId = leafLaneIds[newLaneIdx]
+        newStageId = leafStageIds[newStageIdx]
+      }
+
+      placements = placements.filter((p) => p.nodeId !== move.nodeId)
+      placements.push({ nodeId: move.nodeId, laneId: newLaneId, stageId: newStageId })
+      nodes = nodes.map((n) =>
+        n.id === move.nodeId
+          ? { ...n, data: { ...n.data, laneId: newLaneId, stageId: newStageId } }
+          : n,
+      )
+    }
+
+    const newGridConfig = { ...state.gridConfig, placements }
+    set({
+      nodes,
+      gridConfig: newGridConfig,
+      ...pushHistory({ ...state, nodes, gridConfig: newGridConfig }),
+    })
+  },
+
+  duplicateNodesToCell: (nodeIds, laneId, stageId) => {
+    const state = get()
+    const clipboard = buildClipboardWorkflow(
+      new Set(nodeIds),
+      state.nodes,
+      state.edges,
+      state.gridConfig,
+      state.customNodeTypes,
+      state.customCategories,
+    )
+    get().importWorkflow(clipboard, { laneId, stageId })
+  },
 }))

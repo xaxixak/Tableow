@@ -30,6 +30,8 @@ interface ContextMenuState {
 function GridNode({ node }: GridNodeProps) {
   const selectedNodeId = useWorkflowStore((s) => s.selectedNodeId);
   const selectNode = useWorkflowStore((s) => s.selectNode);
+  const toggleNodeSelection = useWorkflowStore((s) => s.toggleNodeSelection);
+  const selectedNodeIds = useWorkflowStore((s) => s.selectedNodeIds);
   const removeNode = useWorkflowStore((s) => s.removeNode);
   const addEdge = useWorkflowStore((s) => s.addEdge);
   const registryVersion = useWorkflowStore((s) => s.registryVersion);
@@ -37,6 +39,7 @@ function GridNode({ node }: GridNodeProps) {
   const setIsCreatingConnection = useWorkflowStore((s) => s.setIsCreatingConnection);
 
   const isSelected = selectedNodeId === node.id;
+  const isMultiSelected = selectedNodeIds.has(node.id);
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [isConnectionDragTarget, setIsConnectionDragTarget] = useState(false);
   const nodeRef = useRef<HTMLDivElement>(null);
@@ -48,9 +51,13 @@ function GridNode({ node }: GridNodeProps) {
   const handleClick = useCallback(
     (e: React.MouseEvent) => {
       e.stopPropagation();
-      selectNode(node.id);
+      if (e.ctrlKey || e.metaKey) {
+        toggleNodeSelection(node.id);
+      } else {
+        selectNode(node.id);
+      }
     },
-    [node.id, selectNode]
+    [node.id, selectNode, toggleNodeSelection]
   );
 
   const handleContextMenu = useCallback(
@@ -82,7 +89,7 @@ function GridNode({ node }: GridNodeProps) {
     return () => document.removeEventListener("click", handler);
   }, [contextMenu, closeContextMenu]);
 
-  // Drag to move between cells
+  // Drag to move between cells (supports multi-select)
   const handleDragStart = useCallback(
     (e: DragEvent<HTMLDivElement>) => {
       // Don't drag node if currently dragging a connection
@@ -91,10 +98,14 @@ function GridNode({ node }: GridNodeProps) {
         e.stopPropagation();
         return;
       }
-      e.dataTransfer.setData("application/grid-node-move", node.id);
+      // If this node is part of a multi-selection, send all selected IDs
+      const ids = selectedNodeIds.has(node.id) && selectedNodeIds.size > 1
+        ? JSON.stringify([...selectedNodeIds])
+        : node.id;
+      e.dataTransfer.setData("application/grid-node-move", ids);
       e.dataTransfer.effectAllowed = "move";
     },
-    [node.id, isCreatingConnection]
+    [node.id, isCreatingConnection, selectedNodeIds]
   );
 
   // Connection drag handlers
@@ -183,6 +194,7 @@ function GridNode({ node }: GridNodeProps) {
           "text-left w-full min-w-0 cursor-pointer",
           "hover:shadow-md transition-shadow duration-100",
           isSelected && "ring-2 ring-blue-500 border-blue-300 shadow-md",
+          !isSelected && isMultiSelected && "ring-2 ring-blue-300 border-blue-200 bg-blue-50/60 dark:ring-blue-600 dark:border-blue-700 dark:bg-blue-950/40",
           isConnectionDragTarget && "ring-2 ring-green-500 border-green-300"
         )}
         role="button"

@@ -16,6 +16,9 @@ import {
   Redo2,
   Link2,
   SaveAll,
+  GitMerge,
+  Copy,
+  Clipboard,
 } from "lucide-react";
 import { useWorkflowStore } from "../../store/workflowStore.ts";
 import type { Workflow } from "../../types/index.ts";
@@ -42,6 +45,11 @@ export default function Toolbar() {
   const historyLength = useWorkflowStore((s) => s.history.length);
   const canUndoNow = historyIndex > 0;
   const canRedoNow = historyIndex < historyLength - 1;
+  const importWorkflow = useWorkflowStore((s) => s.importWorkflow);
+  const copySelectedNodes = useWorkflowStore((s) => s.copySelectedNodes);
+  const pasteNodes = useWorkflowStore((s) => s.pasteNodes);
+  const selectedNodeIds = useWorkflowStore((s) => s.selectedNodeIds);
+  const clipboardExists = useWorkflowStore((s) => s.clipboard !== null);
 
   const [editingName, setEditingName] = useState(false);
   const [nameValue, setNameValue] = useState(metadata.name);
@@ -52,7 +60,10 @@ export default function Toolbar() {
   const [newWorkflowModalOpen, setNewWorkflowModalOpen] = useState(false);
   const [linkOverviewOpen, setLinkOverviewOpen] = useState(false);
   const [currentFileName, setCurrentFileName] = useState<string | null>(null);
+  const [importConfirmOpen, setImportConfirmOpen] = useState(false);
+  const [pendingImportWorkflow, setPendingImportWorkflow] = useState<Workflow | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const importFileInputRef = useRef<HTMLInputElement>(null);
 
   // Sync nameValue when metadata.name changes (e.g., after loadWorkflow)
   useEffect(() => {
@@ -174,9 +185,42 @@ export default function Toolbar() {
     updateMetadata({ name: trimmed });
   }, [nameValue, updateMetadata]);
 
-  // Keyboard shortcuts for undo/redo
+  // Import handler
+  const handleImportFile = useCallback(
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const data = JSON.parse(e.target?.result as string) as Workflow;
+          setPendingImportWorkflow(data);
+          setImportConfirmOpen(true);
+        } catch {
+          alert("Invalid workflow file.");
+        }
+      };
+      reader.readAsText(file);
+      event.target.value = "";
+    },
+    []
+  );
+
+  const handleImportConfirm = useCallback(() => {
+    if (pendingImportWorkflow) {
+      importWorkflow(pendingImportWorkflow);
+      setPendingImportWorkflow(null);
+    }
+  }, [pendingImportWorkflow, importWorkflow]);
+
+  // Keyboard shortcuts for undo/redo/copy/paste
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      // Don't capture shortcuts when typing in inputs
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA") return;
+
       if ((e.ctrlKey || e.metaKey) && e.key === "z" && !e.shiftKey) {
         e.preventDefault();
         undo();
@@ -189,10 +233,18 @@ export default function Toolbar() {
         e.preventDefault();
         redo();
       }
+      if ((e.ctrlKey || e.metaKey) && e.key === "c") {
+        e.preventDefault();
+        copySelectedNodes();
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === "v") {
+        e.preventDefault();
+        pasteNodes();
+      }
     };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
-  }, [undo, redo]);
+  }, [undo, redo, copySelectedNodes, pasteNodes]);
 
   // Close recent dropdown on click outside
   useEffect(() => {
@@ -430,6 +482,54 @@ export default function Toolbar() {
           className="hidden"
         />
 
+        {/* Import / Merge */}
+        <button
+          onClick={() => importFileInputRef.current?.click()}
+          className={cn(
+            "flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md",
+            "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors"
+          )}
+          title="Import & merge another workflow"
+        >
+          <GitMerge className="w-4 h-4" />
+          <span className="hidden sm:inline">Import</span>
+        </button>
+        <input
+          ref={importFileInputRef}
+          type="file"
+          accept=".json"
+          onChange={handleImportFile}
+          className="hidden"
+        />
+
+        {/* Copy / Paste */}
+        <button
+          onClick={copySelectedNodes}
+          disabled={selectedNodeIds.size === 0}
+          className={cn(
+            "flex items-center justify-center w-8 h-8 rounded-md transition-colors",
+            selectedNodeIds.size > 0
+              ? "text-slate-500 hover:text-slate-700 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-zinc-700"
+              : "text-slate-300 dark:text-zinc-600 cursor-not-allowed"
+          )}
+          title="Copy selected nodes (Ctrl+C)"
+        >
+          <Copy className="w-4 h-4" />
+        </button>
+        <button
+          onClick={pasteNodes}
+          disabled={!clipboardExists}
+          className={cn(
+            "flex items-center justify-center w-8 h-8 rounded-md transition-colors",
+            clipboardExists
+              ? "text-slate-500 hover:text-slate-700 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-zinc-700"
+              : "text-slate-300 dark:text-zinc-600 cursor-not-allowed"
+          )}
+          title="Paste nodes (Ctrl+V)"
+        >
+          <Clipboard className="w-4 h-4" />
+        </button>
+
         <button
           onClick={handleSave}
           className={cn(
@@ -500,6 +600,18 @@ export default function Toolbar() {
       <LinkOverviewModal
         isOpen={linkOverviewOpen}
         onClose={() => setLinkOverviewOpen(false)}
+      />
+
+      <ConfirmModal
+        isOpen={importConfirmOpen}
+        onClose={() => {
+          setImportConfirmOpen(false);
+          setPendingImportWorkflow(null);
+        }}
+        onConfirm={handleImportConfirm}
+        title="Import & Merge Workflow"
+        message={`Merge "${pendingImportWorkflow?.metadata?.name ?? "workflow"}" into the current workflow? Matching lanes and stages will be reused; new ones will be created automatically.`}
+        confirmText="Merge"
       />
     </header>
   );

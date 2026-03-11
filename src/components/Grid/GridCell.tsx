@@ -17,7 +17,10 @@ interface GridCellProps {
 function GridCell({ laneId, stageId, placements, nodes, collapsedChildLaneIds }: GridCellProps) {
   const addNode = useWorkflowStore((s) => s.addNode);
   const placeNode = useWorkflowStore((s) => s.placeNode);
+  const placeNodes = useWorkflowStore((s) => s.placeNodes);
   const selectNode = useWorkflowStore((s) => s.selectNode);
+  const setPasteTargetCell = useWorkflowStore((s) => s.setPasteTargetCell);
+  const duplicateNodesToCell = useWorkflowStore((s) => s.duplicateNodesToCell);
 
   const [isDragOver, setIsDragOver] = useState(false);
 
@@ -55,10 +58,28 @@ function GridCell({ laneId, stageId, placements, nodes, collapsedChildLaneIds }:
       e.preventDefault();
       setIsDragOver(false);
 
-      // Case 1: Moving an existing node between cells
-      const moveNodeId = e.dataTransfer.getData("application/grid-node-move");
-      if (moveNodeId) {
-        placeNode(moveNodeId, laneId, stageId);
+      // Case 1: Moving existing node(s) between cells
+      const moveData = e.dataTransfer.getData("application/grid-node-move");
+      if (moveData) {
+        // Parse multi-node or single-node data
+        let moveNodeIds: string[];
+        try {
+          const parsed = JSON.parse(moveData);
+          moveNodeIds = Array.isArray(parsed) ? parsed : [moveData];
+        } catch {
+          moveNodeIds = [moveData];
+        }
+
+        if (e.ctrlKey || e.metaKey) {
+          // Ctrl+drag = duplicate nodes into this cell
+          duplicateNodesToCell(moveNodeIds, laneId, stageId);
+        } else if (moveNodeIds.length > 1) {
+          // Multi-node move (batch)
+          placeNodes(moveNodeIds.map((id) => ({ nodeId: id, laneId, stageId })));
+        } else {
+          // Single node move
+          placeNode(moveNodeIds[0], laneId, stageId);
+        }
         return;
       }
 
@@ -77,12 +98,13 @@ function GridCell({ laneId, stageId, placements, nodes, collapsedChildLaneIds }:
         placeNode(newNode.id, laneId, stageId);
       }
     },
-    [addNode, placeNode, laneId, stageId]
+    [addNode, placeNode, placeNodes, duplicateNodesToCell, laneId, stageId]
   );
 
   const handleCellClick = useCallback(() => {
     selectNode(null);
-  }, [selectNode]);
+    setPasteTargetCell({ laneId, stageId });
+  }, [selectNode, setPasteTargetCell, laneId, stageId]);
 
   const isEmpty = cellNodes.length === 0;
 
