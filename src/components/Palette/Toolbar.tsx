@@ -399,8 +399,8 @@ export default function Toolbar() {
         }}
         className={cn(
           "flex items-center gap-1.5 px-2.5 py-1 text-sm rounded-md transition-colors",
-          "text-slate-500 hover:text-slate-700 hover:bg-slate-100",
-          "dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-zinc-700"
+          "text-amber-500 hover:text-amber-600 hover:bg-amber-50",
+          "dark:text-amber-400 dark:hover:text-amber-300 dark:hover:bg-amber-900/20"
         )}
         title="Auto-number all categories and nodes"
       >
