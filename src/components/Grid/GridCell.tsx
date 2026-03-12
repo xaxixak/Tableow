@@ -10,17 +10,20 @@ interface GridCellProps {
   stageId: string;
   placements: GridPlacement[];
   nodes: WorkflowNode[];
+  /** Hex color from the lane header — applied as subtle row tint */
+  laneColor?: string;
   /** When parent lane is collapsed, include all descendant lane IDs to show their nodes */
   collapsedChildLaneIds?: string[];
 }
 
-function GridCell({ laneId, stageId, placements, nodes, collapsedChildLaneIds }: GridCellProps) {
+function GridCell({ laneId, stageId, placements, nodes, laneColor, collapsedChildLaneIds }: GridCellProps) {
   const addNode = useWorkflowStore((s) => s.addNode);
   const placeNode = useWorkflowStore((s) => s.placeNode);
   const placeNodes = useWorkflowStore((s) => s.placeNodes);
   const selectNode = useWorkflowStore((s) => s.selectNode);
   const setPasteTargetCell = useWorkflowStore((s) => s.setPasteTargetCell);
   const duplicateNodesToCell = useWorkflowStore((s) => s.duplicateNodesToCell);
+  const darkMode = useWorkflowStore((s) => s.darkMode);
 
   const [isDragOver, setIsDragOver] = useState(false);
 
@@ -119,8 +122,11 @@ function GridCell({ laneId, stageId, placements, nodes, collapsedChildLaneIds }:
         "border-r border-b border-slate-200 dark:border-zinc-800",
         isEmpty && "border-dashed",
         isDragOver && "bg-blue-50 border-blue-300 dark:bg-blue-950 dark:border-blue-700",
-        !isDragOver && "bg-slate-50/50 hover:bg-slate-50 dark:bg-black dark:hover:bg-zinc-950"
+        !isDragOver && !laneColor && "bg-slate-50/50 hover:bg-slate-50 dark:bg-black dark:hover:bg-zinc-950"
       )}
+      style={!isDragOver && laneColor ? {
+        backgroundColor: darkMode ? laneColor + "0d" : laneColor + "0a",
+      } : undefined}
       role="gridcell"
       aria-label={`Cell: lane ${laneId}, stage ${stageId}`}
     >

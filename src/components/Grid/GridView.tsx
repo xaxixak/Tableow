@@ -16,7 +16,9 @@ export default function GridView() {
   const gridConfig = useWorkflowStore((s) => s.gridConfig);
   const nodes = useWorkflowStore((s) => s.nodes);
   const addLane = useWorkflowStore((s) => s.addLane);
+  const addMultipleLanes = useWorkflowStore((s) => s.addMultipleLanes);
   const addStage = useWorkflowStore((s) => s.addStage);
+  const addMultipleStages = useWorkflowStore((s) => s.addMultipleStages);
   const selectNode = useWorkflowStore((s) => s.selectNode);
   const seedGrid = useWorkflowStore((s) => s.seedGrid);
   const removeNode = useWorkflowStore((s) => s.removeNode);
@@ -261,6 +263,17 @@ export default function GridView() {
                 Add Lane
               </button>
               <button
+                onClick={() => addMultipleLanes(5)}
+                className={cn(
+                  "flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-md",
+                  "border border-slate-300 dark:border-zinc-700 text-slate-500 dark:text-slate-400",
+                  "hover:bg-white dark:hover:bg-zinc-800 transition-colors"
+                )}
+              >
+                <Plus className="w-3.5 h-3.5" />
+                + 5 Lanes
+              </button>
+              <button
                 onClick={handleAddStage}
                 className={cn(
                   "flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-md",
@@ -270,6 +283,17 @@ export default function GridView() {
               >
                 <Plus className="w-3.5 h-3.5" />
                 Add Stage
+              </button>
+              <button
+                onClick={() => addMultipleStages(5)}
+                className={cn(
+                  "flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-md",
+                  "border border-slate-300 dark:border-zinc-700 text-slate-500 dark:text-slate-400",
+                  "hover:bg-white dark:hover:bg-zinc-800 transition-colors"
+                )}
+              >
+                <Plus className="w-3.5 h-3.5" />
+                + 5 Stages
               </button>
             </div>
           </div>
@@ -318,6 +342,20 @@ export default function GridView() {
                 Add Lane
               </button>
               <button
+                onClick={() => addMultipleLanes(5)}
+                className={cn(
+                  "flex items-center gap-1 px-3 py-1 text-xs rounded-md",
+                  "border border-dashed border-slate-300 dark:border-zinc-700 text-slate-400 dark:text-slate-500",
+                  "hover:border-slate-400 hover:text-slate-500 hover:bg-white",
+                  "dark:hover:border-zinc-600 dark:hover:text-slate-400 dark:hover:bg-zinc-900",
+                  "transition-colors"
+                )}
+                title="Add 5 lanes at once"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                + 5 Lanes
+              </button>
+              <button
                 onClick={handleAddStage}
                 className={cn(
                   "flex items-center gap-1 px-3 py-1 text-xs rounded-md",
@@ -330,6 +368,20 @@ export default function GridView() {
               >
                 <Plus className="w-3.5 h-3.5" />
                 Add Stage
+              </button>
+              <button
+                onClick={() => addMultipleStages(5)}
+                className={cn(
+                  "flex items-center gap-1 px-3 py-1 text-xs rounded-md",
+                  "border border-dashed border-slate-300 dark:border-zinc-700 text-slate-400 dark:text-slate-500",
+                  "hover:border-slate-400 hover:text-slate-500 hover:bg-white",
+                  "dark:hover:border-zinc-600 dark:hover:text-slate-400 dark:hover:bg-zinc-900",
+                  "transition-colors"
+                )}
+                title="Add 5 stages at once"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                + 5 Stages
               </button>
             </div>
           </div>
@@ -351,11 +403,26 @@ export default function GridView() {
             Add Lane
           </button>
           <button
+            onClick={() => { closeContextMenu(); addMultipleLanes(5); }}
+            className="flex items-center gap-2 w-full px-3 py-1.5 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-zinc-800"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            Add 5 Lanes
+          </button>
+          <hr className="my-1 border-slate-100 dark:border-zinc-700" />
+          <button
             onClick={handleContextAddStage}
             className="flex items-center gap-2 w-full px-3 py-1.5 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-zinc-800"
           >
             <Plus className="w-3.5 h-3.5" />
             Add Stage
+          </button>
+          <button
+            onClick={() => { closeContextMenu(); addMultipleStages(5); }}
+            className="flex items-center gap-2 w-full px-3 py-1.5 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-zinc-800"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            Add 5 Stages
           </button>
         </div>
       )}

@@ -94,9 +94,11 @@ export interface WorkflowState {
   // Grid configuration
   gridConfig: GridConfig
   addLane: (lane: Omit<LaneDefinition, 'id'>) => void
+  addMultipleLanes: (count: number) => void
   removeLane: (id: string) => void
   updateLane: (id: string, updates: Partial<LaneDefinition>) => void
   addStage: (stage: Omit<StageDefinition, 'id'>) => void
+  addMultipleStages: (count: number) => void
   removeStage: (id: string) => void
   updateStage: (id: string, updates: Partial<StageDefinition>) => void
   insertLane: (lane: Omit<LaneDefinition, 'id'>, referenceId: string, position: 'before' | 'after') => void
@@ -944,9 +946,35 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       nodeRegistry.register(updated)
       return updated
     })
+
+    // Auto-assign lane colors (cycle through palette, skip lanes that already have a user-set color)
+    const LANE_COLOR_PALETTE = [
+      "#3b82f6", "#22c55e", "#06b6d4", "#f59e0b",
+      "#ef4444", "#a855f7", "#ec4899", "#f97316",
+    ]
+    const lanes = state.gridConfig.lanes
+    // Only auto-color top-level lanes; children inherit parent visually
+    const topLevelLanes = lanes.filter((l) => !l.parentId).sort((a, b) => a.order - b.order)
+    const colorMap = new Map<string, string>()
+    topLevelLanes.forEach((lane, i) => {
+      colorMap.set(lane.id, LANE_COLOR_PALETTE[i % LANE_COLOR_PALETTE.length])
+    })
+    const coloredLanes = lanes.map((lane) => {
+      const hex = colorMap.get(lane.id)
+      if (hex) return { ...lane, color: hex }
+      // Sub-lanes: inherit parent color
+      if (lane.parentId) {
+        const parentHex = colorMap.get(lane.parentId)
+        if (parentHex) return { ...lane, color: parentHex }
+      }
+      return lane
+    })
+    const newGridConfig = { ...state.gridConfig, lanes: coloredLanes }
+
     set({
       customCategories: renumberedCats,
       customNodeTypes: renumberedNodes,
+      gridConfig: newGridConfig,
       registryVersion: state.registryVersion + 1,
     })
   },
@@ -1008,6 +1036,25 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     const newGridConfig = {
       ...state.gridConfig,
       lanes: [...state.gridConfig.lanes, newLane],
+    }
+    set({
+      gridConfig: newGridConfig,
+      ...pushHistory({ ...state, gridConfig: newGridConfig }),
+    })
+  },
+
+  addMultipleLanes: (count) => {
+    const state = get()
+    const maxOrder = state.gridConfig.lanes.reduce((max, l) => Math.max(max, l.order), 0)
+    const existingCount = state.gridConfig.lanes.length
+    const newLanes: LaneDefinition[] = Array.from({ length: count }, (_, i) => ({
+      id: crypto.randomUUID(),
+      label: `Lane ${existingCount + i + 1}`,
+      order: maxOrder + i + 1,
+    }))
+    const newGridConfig = {
+      ...state.gridConfig,
+      lanes: [...state.gridConfig.lanes, ...newLanes],
     }
     set({
       gridConfig: newGridConfig,
@@ -1088,6 +1135,25 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     const newGridConfig = {
       ...state.gridConfig,
       stages: [...state.gridConfig.stages, newStage],
+    }
+    set({
+      gridConfig: newGridConfig,
+      ...pushHistory({ ...state, gridConfig: newGridConfig }),
+    })
+  },
+
+  addMultipleStages: (count) => {
+    const state = get()
+    const maxOrder = state.gridConfig.stages.reduce((max, s) => Math.max(max, s.order), 0)
+    const existingCount = state.gridConfig.stages.length
+    const newStages: StageDefinition[] = Array.from({ length: count }, (_, i) => ({
+      id: crypto.randomUUID(),
+      label: `Stage ${existingCount + i + 1}`,
+      order: maxOrder + i + 1,
+    }))
+    const newGridConfig = {
+      ...state.gridConfig,
+      stages: [...state.gridConfig.stages, ...newStages],
     }
     set({
       gridConfig: newGridConfig,

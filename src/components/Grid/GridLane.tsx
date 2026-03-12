@@ -12,12 +12,15 @@ interface ContextMenuState {
 }
 
 const LANE_COLORS = [
-  { label: "Default", value: undefined },
-  { label: "Blue", value: "bg-blue-50 border-blue-200" },
-  { label: "Green", value: "bg-green-50 border-green-200" },
-  { label: "Yellow", value: "bg-yellow-50 border-yellow-200" },
-  { label: "Red", value: "bg-red-50 border-red-200" },
-  { label: "Purple", value: "bg-purple-50 border-purple-200" },
+  { label: "Default", hex: undefined },
+  { label: "Blue", hex: "#3b82f6" },
+  { label: "Green", hex: "#22c55e" },
+  { label: "Cyan", hex: "#06b6d4" },
+  { label: "Amber", hex: "#f59e0b" },
+  { label: "Red", hex: "#ef4444" },
+  { label: "Purple", hex: "#a855f7" },
+  { label: "Pink", hex: "#ec4899" },
+  { label: "Orange", hex: "#f97316" },
 ];
 
 interface GridLaneProps {
@@ -142,8 +145,8 @@ function GridLane({
   }, [lane.id, lane.parentId, insertLane, closeContextMenu]);
 
   const handleColorChange = useCallback(
-    (color: string | undefined) => {
-      updateLane(lane.id, { color });
+    (hex: string | undefined) => {
+      updateLane(lane.id, { color: hex });
       closeContextMenu();
     },
     [lane.id, updateLane, closeContextMenu]
@@ -212,7 +215,8 @@ function GridLane({
     return () => document.removeEventListener("click", handler);
   }, [contextMenu, closeContextMenu]);
 
-  const laneColorClass = lane.color ?? "";
+  const darkMode = useWorkflowStore((s) => s.darkMode);
+  const laneHex = lane.color;
 
   return (
     <>
@@ -231,12 +235,18 @@ function GridLane({
             "sticky left-0 z-10 flex items-center gap-1 px-2 py-2 group/lane",
             "bg-white dark:bg-zinc-950 border-r border-b border-slate-200 dark:border-zinc-800",
             "min-w-[120px] select-none cursor-grab active:cursor-grabbing",
-            laneColorClass,
             dragOverPosition === 'before' && "border-t-2 border-t-blue-500",
             dragOverPosition === 'after' && "border-b-2 border-b-blue-500",
             dragOverPosition === 'child' && "ring-2 ring-inset ring-green-500 bg-green-50 dark:bg-green-950"
           )}
-          style={{ paddingLeft: `${8 + depth * 16}px` }}
+          style={{
+            paddingLeft: `${8 + depth * 16}px`,
+            ...(laneHex ? {
+              borderLeftWidth: "4px",
+              borderLeftColor: laneHex,
+              backgroundColor: darkMode ? laneHex + "20" : laneHex + "15",
+            } : {}),
+          }}
           onContextMenu={handleContextMenu}
         >
           {/* Drag handle */}
@@ -296,6 +306,7 @@ function GridLane({
             stageId={stage.id}
             placements={placements}
             nodes={nodes}
+            laneColor={laneHex}
             collapsedChildLaneIds={
               collapsed && hasChildren
                 ? [lane.id, ...allDescendants.map((l) => l.id)]
@@ -366,12 +377,12 @@ function GridLane({
               {LANE_COLORS.map((c) => (
                 <button
                   key={c.label}
-                  onClick={() => handleColorChange(c.value)}
+                  onClick={() => handleColorChange(c.hex)}
                   className={cn(
-                    "w-5 h-5 rounded border border-slate-300 dark:border-zinc-600",
-                    c.value ?? "bg-white dark:bg-zinc-800",
-                    lane.color === c.value && "ring-2 ring-blue-500"
+                    "w-5 h-5 rounded-full border-2 transition-transform hover:scale-125",
+                    lane.color === c.hex ? "border-slate-800 dark:border-white scale-110" : "border-slate-200 dark:border-zinc-600",
                   )}
+                  style={{ backgroundColor: c.hex ?? (darkMode ? "#18181b" : "#ffffff") }}
                   title={c.label}
                 />
               ))}
