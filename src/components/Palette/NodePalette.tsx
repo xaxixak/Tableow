@@ -14,6 +14,7 @@ import { nodeRegistry } from "../../registry/index.ts";
 import { useWorkflowStore } from "../../store/workflowStore.ts";
 import type { NodeDefinition } from "../../types/index.ts";
 import { cn } from "../../lib/utils.ts";
+import { getColorByIndex, COLOR_PALETTE } from "../../lib/categoryColors.ts";
 import { Modal } from "../Modal/Modal";
 import { InputModal } from "../Modal/InputModal";
 import { ConfirmModal } from "../Modal/ConfirmModal";
@@ -127,6 +128,10 @@ function NodePaletteItem({
   onEdit?: () => void;
   onDelete?: () => void;
 }) {
+  const customCategories = useWorkflowStore((s) => s.customCategories);
+  const catDef = customCategories.find((c) => c.path === definition.category);
+  const catColor = getColorByIndex(catDef?.colorIndex);
+
   const onDragStart = (event: DragEvent<HTMLDivElement>) => {
     event.dataTransfer.setData("application/reactflow-type", definition.type);
     // Also set palette-move data so categories can accept node reordering
@@ -149,7 +154,10 @@ function NodePaletteItem({
       title={`Drag to add ${definition.label}`}
     >
       {definition.icon && (
-        <span className="text-base leading-none mt-0.5 shrink-0">
+        <span
+          className="flex items-center justify-center w-6 h-6 rounded text-sm leading-none shrink-0 text-white"
+          style={{ backgroundColor: catColor.hex }}
+        >
           {definition.icon}
         </span>
       )}
@@ -493,9 +501,11 @@ function CategorySection({
   const [renameModalOpen, setRenameModalOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [addSubModalOpen, setAddSubModalOpen] = useState(false);
+  const [showColorPicker, setShowColorPicker] = useState(false);
   const removeCustomCategory = useWorkflowStore((s) => s.removeCustomCategory);
   const renameCustomCategory = useWorkflowStore((s) => s.renameCustomCategory);
   const addCustomCategory = useWorkflowStore((s) => s.addCustomCategory);
+  const updateCategoryColor = useWorkflowStore((s) => s.updateCategoryColor);
   const customCategories = useWorkflowStore((s) => s.customCategories);
   const updateCustomNodeType = useWorkflowStore((s) => s.updateCustomNodeType);
   const [isDragOver, setIsDragOver] = useState(false);
@@ -571,33 +581,12 @@ function CategorySection({
     [node.fullPath, updateCustomNodeType]
   );
 
+  const darkMode = useWorkflowStore((s) => s.darkMode);
   const paddingLeft = depth * 20;
 
-  // Hierarchy colors — vibrant, distinct per depth level
-  const bgColors = [
-    "bg-sky-100 dark:bg-sky-900/40",
-    "bg-emerald-100 dark:bg-emerald-900/40",
-    "bg-amber-100 dark:bg-amber-900/40",
-    "bg-violet-100 dark:bg-violet-900/40",
-    "bg-rose-100 dark:bg-rose-900/40",
-  ];
-  const hoverBgColors = [
-    "hover:bg-sky-200 dark:hover:bg-sky-800/50",
-    "hover:bg-emerald-200 dark:hover:bg-emerald-800/50",
-    "hover:bg-amber-200 dark:hover:bg-amber-800/50",
-    "hover:bg-violet-200 dark:hover:bg-violet-800/50",
-    "hover:bg-rose-200 dark:hover:bg-rose-800/50",
-  ];
-  const borderColors = [
-    "border-l-sky-400 dark:border-l-sky-500",
-    "border-l-emerald-400 dark:border-l-emerald-500",
-    "border-l-amber-400 dark:border-l-amber-500",
-    "border-l-violet-400 dark:border-l-violet-500",
-    "border-l-rose-400 dark:border-l-rose-500",
-  ];
-  const headerBg = bgColors[depth % bgColors.length];
-  const headerHover = hoverBgColors[depth % hoverBgColors.length];
-  const borderColor = borderColors[depth % borderColors.length];
+  // Per-category color from colorIndex assigned during auto-numbering
+  const catDef = customCategories.find((c) => c.path === node.fullPath);
+  const catColor = getColorByIndex(catDef?.colorIndex);
 
   // Close menu on click outside
   useEffect(() => {
@@ -615,12 +604,14 @@ function CategorySection({
         onDragLeave={handleCategoryDragLeave}
         onDrop={handleCategoryDrop}
         className={cn(
-          "flex items-center group border-l-3",
-          headerBg,
-          borderColor,
-          isDragOver && "ring-2 ring-inset ring-blue-500 bg-blue-100 dark:bg-blue-900/40"
+          "flex items-center group",
+          isDragOver && "ring-2 ring-inset ring-blue-500"
         )}
-        style={{ marginLeft: `${paddingLeft}px` }}
+        style={{
+          borderLeft: `4px solid ${catColor.hex}`,
+          backgroundColor: isDragOver ? undefined : (darkMode ? catColor.headerDarkBgHex : catColor.headerBgHex),
+          marginLeft: `${paddingLeft}px`,
+        }}
       >
         <button
           onClick={() => setOpen(!open)}
@@ -628,8 +619,7 @@ function CategorySection({
             "flex items-center gap-1.5 flex-1 py-2 px-3 text-xs font-semibold",
             "text-slate-700 dark:text-slate-200 uppercase tracking-wider",
             "hover:text-slate-900 dark:hover:text-white",
-            "transition-colors duration-100",
-            headerHover
+            "transition-colors duration-100 hover:brightness-95 dark:hover:brightness-125"
           )}
           aria-expanded={open}
         >
@@ -678,6 +668,37 @@ function CategorySection({
                 <Plus className="w-3 h-3" />
                 Add sub-category
               </button>
+              <hr className="my-1 border-slate-100" />
+              <button
+                onClick={(e) => { e.stopPropagation(); setShowColorPicker(!showColorPicker); }}
+                className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50"
+              >
+                <span
+                  className="w-3 h-3 rounded-full border border-slate-300"
+                  style={{ backgroundColor: catColor.hex }}
+                />
+                Change color
+              </button>
+              {showColorPicker && (
+                <div className="flex flex-wrap gap-1.5 px-3 py-2">
+                  {COLOR_PALETTE.map((color, i) => (
+                    <button
+                      key={i}
+                      onClick={() => {
+                        updateCategoryColor(node.fullPath, i);
+                        setShowColorPicker(false);
+                        setShowMenu(false);
+                      }}
+                      className={cn(
+                        "w-5 h-5 rounded-full border-2 transition-transform hover:scale-125",
+                        catDef?.colorIndex === i ? "border-slate-800 scale-110" : "border-white shadow-sm"
+                      )}
+                      style={{ backgroundColor: color.hex }}
+                      title={`Color ${i + 1}`}
+                    />
+                  ))}
+                </div>
+              )}
               {isCustomCategory && (
                 <>
                   <hr className="my-1 border-slate-100" />

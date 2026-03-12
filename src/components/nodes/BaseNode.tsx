@@ -4,6 +4,7 @@ import { nodeRegistry } from "../../registry/index.ts";
 import { useWorkflowStore } from "../../store/workflowStore.ts";
 import type { PortDefinition } from "../../types/index.ts";
 import { cn } from "../../lib/utils.ts";
+import { getColorByIndex } from "../../lib/categoryColors.ts";
 
 const HANDLE_COLORS: Record<string, string> = {
   document: "bg-blue-500 border-blue-600",
@@ -13,20 +14,8 @@ const HANDLE_COLORS: Record<string, string> = {
   any: "bg-gray-400 border-gray-500",
 };
 
-const CATEGORY_COLORS: Record<string, string> = {
-  input: "bg-emerald-600",
-  processing: "bg-violet-600",
-  output: "bg-amber-600",
-  logic: "bg-sky-600",
-  integration: "bg-rose-600",
-};
-
 function getHandleColor(type: string): string {
   return HANDLE_COLORS[type] ?? HANDLE_COLORS.any;
-}
-
-function getCategoryColor(category: string): string {
-  return CATEGORY_COLORS[category] ?? "bg-slate-600";
 }
 
 function getHandleTop(index: number, total: number): string {
@@ -49,22 +38,22 @@ function BaseNode({ data, type, selected }: NodeProps) {
   const label = (data.label as string) ?? definition?.label ?? type ?? "Node";
   const icon = definition?.icon;
   const category = definition?.category ?? "processing";
-  const categoryColor = getCategoryColor(category);
+  const customCategories = useWorkflowStore((state) => state.customCategories);
+  const catDef = customCategories.find((c) => c.path === category);
+  const catColor = getColorByIndex(catDef?.colorIndex);
 
   return (
     <div
       className={cn(
-        "min-w-[160px] rounded-lg shadow-md border border-slate-300 bg-white",
+        "min-w-[160px] rounded-lg shadow-md border border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-900",
         "transition-shadow duration-150",
         selected && "ring-2 ring-blue-500 shadow-lg"
       )}
     >
       {/* Header */}
       <div
-        className={cn(
-          "flex items-center gap-2 px-3 py-2 rounded-t-lg text-white text-sm font-medium",
-          definition?.color ?? categoryColor
-        )}
+        className="flex items-center gap-2 px-3 py-2 rounded-t-lg text-white text-sm font-medium"
+        style={{ backgroundColor: catColor.hex }}
       >
         {icon && <span className="text-base leading-none">{icon}</span>}
         <span className="truncate">{label}</span>

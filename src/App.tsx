@@ -31,6 +31,9 @@ export default function App() {
   return (
     <ReactFlowProvider>
       <div className="flex flex-col h-screen w-screen overflow-hidden bg-slate-50 dark:bg-black">
+        {/* Gradient accent bar */}
+        <div className="h-1 shrink-0 bg-linear-to-r from-indigo-500 via-purple-500 to-pink-500" />
+
         {/* Top toolbar */}
         <Toolbar />
 

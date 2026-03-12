@@ -216,7 +216,7 @@ export default function WorkflowCanvas() {
           variant={BackgroundVariant.Dots}
           gap={16}
           size={1}
-          color="#cbd5e1"
+          color="#a5b4fc"
         />
       </ReactFlow>
 

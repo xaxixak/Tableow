@@ -91,7 +91,7 @@ function GridConnections() {
           markerHeight="6"
           orient="auto-start-reverse"
         >
-          <path d="M 0 0 L 10 3.5 L 0 7 z" fill="#64748b" />
+          <path d="M 0 0 L 10 3.5 L 0 7 z" fill="#818cf8" />
         </marker>
         <marker
           id="grid-arrow-selected"
@@ -153,7 +153,7 @@ function GridConnections() {
             <path
               d={pathD}
               fill="none"
-              stroke={isSelected ? "#3b82f6" : "#64748b"}
+              stroke={isSelected ? "#3b82f6" : "#818cf8"}
               strokeWidth={isSelected ? 3 : 2}
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -168,7 +168,7 @@ function GridConnections() {
                 y={labelY - 8}
                 textAnchor="middle"
                 fontSize="11"
-                fill={isSelected ? "#3b82f6" : "#64748b"}
+                fill={isSelected ? "#3b82f6" : "#818cf8"}
                 fontWeight={isSelected ? "600" : "normal"}
                 style={{ pointerEvents: "none", userSelect: "none" }}
               >

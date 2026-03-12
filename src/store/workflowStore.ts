@@ -101,7 +101,7 @@ export interface WorkflowState {
   updateStage: (id: string, updates: Partial<StageDefinition>) => void
   insertLane: (lane: Omit<LaneDefinition, 'id'>, referenceId: string, position: 'before' | 'after') => void
   insertStage: (stage: Omit<StageDefinition, 'id'>, referenceId: string, position: 'before' | 'after') => void
-  reorderLanes: (sourceId: string, targetId: string) => void
+  reorderLanes: (sourceId: string, targetId: string, position?: 'before' | 'after' | 'child') => void
   reorderStages: (sourceId: string, targetId: string) => void
   setLaneColumnWidth: (width: number) => void
   placeNode: (nodeId: string, laneId: string, stageId: string) => void
@@ -114,6 +114,7 @@ export interface WorkflowState {
   addCustomCategory: (path: string) => void
   removeCustomCategory: (path: string) => void
   renameCustomCategory: (oldPath: string, newPath: string) => void
+  updateCategoryColor: (path: string, colorIndex: number) => void
   cloneNodeDefinition: (sourceType: string, targetCategory?: string) => string | null
   updateCustomNodeDefinition: (type: string, updates: Partial<Pick<NodeDefinition, 'label' | 'description' | 'icon' | 'category' | 'inputs' | 'outputs' | 'configSchema' | 'defaultConfig'>>) => void
   moveCustomNodeToCategory: (type: string, newCategory: string) => void
@@ -499,6 +500,15 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       ),
       customNodeTypes: updatedTypes,
       registryVersion: state.registryVersion + 1,
+    })
+  },
+
+  updateCategoryColor: (path, colorIndex) => {
+    const state = get()
+    set({
+      customCategories: state.customCategories.map((c) =>
+        c.path === path ? { ...c, colorIndex } : c
+      ),
     })
   },
 
@@ -917,8 +927,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     // Build complete category list, sorted alphabetically, numbered sequentially
     const sortedPaths = [...allPaths].sort((a, b) => a.localeCompare(b))
     const renumberedCats: CategoryDefinition[] = sortedPaths.map((path, i) => {
-      const existing = state.customCategories.find((c) => c.path === path)
-      return { path, number: `C${i + 1}`, order: i, ...(existing ? {} : {}) }
+      return { path, number: `C${i + 1}`, order: i, colorIndex: i }
     })
     // Re-number all nodes within each category: C1-001, C1-002, ...
     const counters = new Map<string, number>()
@@ -1157,27 +1166,78 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     })
   },
 
-  reorderLanes: (sourceId, targetId) => {
+  reorderLanes: (sourceId, targetId, position?: 'before' | 'after' | 'child') => {
     if (sourceId === targetId) return
     const state = get()
     const sourceLane = state.gridConfig.lanes.find((l) => l.id === sourceId)
     const targetLane = state.gridConfig.lanes.find((l) => l.id === targetId)
     if (!sourceLane || !targetLane) return
-    // Only swap siblings (same parent)
-    if (sourceLane.parentId !== targetLane.parentId) return
 
-    const newGridConfig = {
-      ...state.gridConfig,
-      lanes: state.gridConfig.lanes.map((l) => {
-        if (l.id === sourceId) return { ...l, order: targetLane.order }
-        if (l.id === targetId) return { ...l, order: sourceLane.order }
-        return l
-      }),
+    // Prevent circular reference: can't drop a lane onto its own descendant
+    const isDescendant = (parentId: string, checkId: string): boolean => {
+      for (const l of state.gridConfig.lanes) {
+        if (l.parentId === parentId) {
+          if (l.id === checkId) return true
+          if (isDescendant(l.id, checkId)) return true
+        }
+      }
+      return false
     }
-    set({
-      gridConfig: newGridConfig,
-      ...pushHistory({ ...state, gridConfig: newGridConfig }),
-    })
+    if (isDescendant(sourceId, targetId)) return
+
+    const effectivePosition = position ?? 'after'
+
+    if (effectivePosition === 'child') {
+      // Reparent: make source a child of target
+      const childrenOfTarget = state.gridConfig.lanes.filter((l) => l.parentId === targetId)
+      const maxOrder = childrenOfTarget.reduce((max, l) => Math.max(max, l.order), 0)
+      const newGridConfig = {
+        ...state.gridConfig,
+        lanes: state.gridConfig.lanes.map((l) => {
+          if (l.id === sourceId) return { ...l, parentId: targetId, order: maxOrder + 1 }
+          return l
+        }),
+      }
+      set({
+        gridConfig: newGridConfig,
+        ...pushHistory({ ...state, gridConfig: newGridConfig }),
+      })
+    } else if (sourceLane.parentId === targetLane.parentId) {
+      // Same parent: simple swap
+      const newGridConfig = {
+        ...state.gridConfig,
+        lanes: state.gridConfig.lanes.map((l) => {
+          if (l.id === sourceId) return { ...l, order: targetLane.order }
+          if (l.id === targetId) return { ...l, order: sourceLane.order }
+          return l
+        }),
+      }
+      set({
+        gridConfig: newGridConfig,
+        ...pushHistory({ ...state, gridConfig: newGridConfig }),
+      })
+    } else {
+      // Cross-parent move: reparent source to target's parent, insert before/after target
+      const newParentId = targetLane.parentId
+      const insertOrder = effectivePosition === 'before' ? targetLane.order : targetLane.order + 1
+      // Shift siblings at or after insertOrder to make room
+      const newGridConfig = {
+        ...state.gridConfig,
+        lanes: state.gridConfig.lanes.map((l) => {
+          if (l.id === sourceId) {
+            return { ...l, parentId: newParentId, order: insertOrder }
+          }
+          if (l.parentId === newParentId && l.id !== sourceId && l.order >= insertOrder) {
+            return { ...l, order: l.order + 1 }
+          }
+          return l
+        }),
+      }
+      set({
+        gridConfig: newGridConfig,
+        ...pushHistory({ ...state, gridConfig: newGridConfig }),
+      })
+    }
   },
 
   reorderStages: (sourceId, targetId) => {

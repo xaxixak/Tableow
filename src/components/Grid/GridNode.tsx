@@ -3,20 +3,8 @@ import { Trash2, GripVertical } from "lucide-react";
 import { nodeRegistry } from "../../registry/index.ts";
 import { useWorkflowStore } from "../../store/workflowStore.ts";
 import { cn } from "../../lib/utils.ts";
+import { getColorByIndex } from "../../lib/categoryColors.ts";
 import type { WorkflowNode } from "../../types/index.ts";
-
-const CATEGORY_COLORS: Record<string, string> = {
-  input: "bg-emerald-600",
-  processing: "bg-violet-600",
-  output: "bg-amber-600",
-  logic: "bg-sky-600",
-  integration: "bg-rose-600",
-  General: "bg-slate-600",
-};
-
-function getCategoryColor(category: string): string {
-  return CATEGORY_COLORS[category] ?? "bg-slate-600";
-}
 
 interface GridNodeProps {
   node: WorkflowNode;
@@ -172,10 +160,13 @@ function GridNode({ node }: GridNodeProps) {
     [node.id, addEdge, definition, setIsCreatingConnection]
   );
 
+  const darkMode = useWorkflowStore((s) => s.darkMode);
+  const customCategories = useWorkflowStore((s) => s.customCategories);
   const label = (node.data.label as string) ?? definition?.label ?? node.type ?? "Node";
   const icon = definition?.icon;
   const category = definition?.category ?? "processing";
-  const categoryColor = definition?.color ?? getCategoryColor(category);
+  const catDef = customCategories.find((c) => c.path === category);
+  const catColor = getColorByIndex(catDef?.colorIndex);
   const inputCount = definition?.inputs?.length ?? 0;
   const outputCount = definition?.outputs?.length ?? 0;
 
@@ -189,14 +180,19 @@ function GridNode({ node }: GridNodeProps) {
         onClick={handleClick}
         onContextMenu={handleContextMenu}
         className={cn(
-          "relative flex items-center gap-1.5 px-2.5 py-1.5 rounded-md flex-1 group",
-          "bg-white border border-slate-200 shadow-sm",
+          "relative flex items-center gap-1.5 pl-3 pr-2.5 py-1.5 rounded-md flex-1 group",
+          "border border-slate-200 dark:border-zinc-700 shadow-sm",
           "text-left w-full min-w-0 cursor-pointer",
           "hover:shadow-md transition-shadow duration-100",
           isSelected && "ring-2 ring-blue-500 border-blue-300 shadow-md",
           !isSelected && isMultiSelected && "ring-2 ring-blue-300 border-blue-200 bg-blue-50/60 dark:ring-blue-600 dark:border-blue-700 dark:bg-blue-950/40",
           isConnectionDragTarget && "ring-2 ring-green-500 border-green-300"
         )}
+        style={{
+          borderLeftWidth: "4px",
+          borderLeftColor: catColor.hex,
+          backgroundColor: darkMode ? catColor.darkBgHex : catColor.bgHex,
+        }}
         role="button"
         tabIndex={0}
         aria-label={`Node: ${label}`}
@@ -227,10 +223,8 @@ function GridNode({ node }: GridNodeProps) {
         {/* Icon */}
         {icon && (
           <span
-            className={cn(
-              "flex items-center justify-center w-5 h-5 rounded text-white text-xs leading-none shrink-0",
-              categoryColor
-            )}
+            className="flex items-center justify-center w-5 h-5 rounded text-white text-xs leading-none shrink-0"
+            style={{ backgroundColor: catColor.hex }}
           >
             {icon}
           </span>

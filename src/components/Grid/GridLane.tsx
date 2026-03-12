@@ -47,8 +47,9 @@ function GridLane({
   const [editing, setEditing] = useState(false);
   const [editValue, setEditValue] = useState(lane.label);
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
-  const [isDragOver, setIsDragOver] = useState(false);
+  const [dragOverPosition, setDragOverPosition] = useState<'before' | 'after' | 'child' | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const laneRef = useRef<HTMLDivElement>(null);
 
   const hasChildren = childLanes.length > 0;
 
@@ -157,35 +158,50 @@ function GridLane({
     [lane.id]
   );
 
+  const getDragPosition = useCallback(
+    (e: DragEvent<HTMLDivElement>): 'before' | 'after' | 'child' => {
+      const rect = laneRef.current?.getBoundingClientRect();
+      if (!rect) return 'after';
+      const y = e.clientY - rect.top;
+      const height = rect.height;
+      // Top 25% = before, bottom 25% = after, center 50% = make child
+      if (y < height * 0.25) return 'before';
+      if (y > height * 0.75) return 'after';
+      return 'child';
+    },
+    []
+  );
+
   const handleLaneDragOver = useCallback(
     (e: DragEvent<HTMLDivElement>) => {
       if (e.dataTransfer.types.includes("application/grid-lane-reorder")) {
         e.preventDefault();
         e.dataTransfer.dropEffect = "move";
-        setIsDragOver(true);
+        setDragOverPosition(getDragPosition(e));
       }
     },
-    []
+    [getDragPosition]
   );
 
   const handleLaneDragLeave = useCallback(() => {
-    setIsDragOver(false);
+    setDragOverPosition(null);
   }, []);
 
   const handleLaneDrop = useCallback(
     (e: DragEvent<HTMLDivElement>) => {
       e.preventDefault();
-      setIsDragOver(false);
+      const position = getDragPosition(e);
+      setDragOverPosition(null);
       const sourceId = e.dataTransfer.getData("application/grid-lane-reorder");
       if (sourceId && sourceId !== lane.id) {
-        reorderLanes(sourceId, lane.id);
+        reorderLanes(sourceId, lane.id, position);
       }
     },
-    [lane.id, reorderLanes]
+    [lane.id, reorderLanes, getDragPosition]
   );
 
   const handleLaneDragEnd = useCallback(() => {
-    setIsDragOver(false);
+    setDragOverPosition(null);
   }, []);
 
   // Close context menu on click outside
@@ -204,6 +220,7 @@ function GridLane({
       <div className="contents" role="row">
         {/* Lane label cell (sticky left, draggable for reorder) */}
         <div
+          ref={laneRef}
           draggable={!editing}
           onDragStart={handleLaneDragStart}
           onDragOver={handleLaneDragOver}
@@ -215,7 +232,9 @@ function GridLane({
             "bg-white dark:bg-zinc-950 border-r border-b border-slate-200 dark:border-zinc-800",
             "min-w-[120px] select-none cursor-grab active:cursor-grabbing",
             laneColorClass,
-            isDragOver && "border-t-2 border-t-blue-500 bg-blue-50 dark:bg-blue-950"
+            dragOverPosition === 'before' && "border-t-2 border-t-blue-500",
+            dragOverPosition === 'after' && "border-b-2 border-b-blue-500",
+            dragOverPosition === 'child' && "ring-2 ring-inset ring-green-500 bg-green-50 dark:bg-green-950"
           )}
           style={{ paddingLeft: `${8 + depth * 16}px` }}
           onContextMenu={handleContextMenu}

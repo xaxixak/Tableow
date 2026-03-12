@@ -53,6 +53,8 @@ export interface CategoryDefinition {
   number: string
   /** Creation order for sequential numbering */
   order: number
+  /** Color palette index assigned during auto-numbering */
+  colorIndex?: number
 }
 
 /**
