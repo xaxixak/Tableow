@@ -85,11 +85,15 @@ export interface WorkflowState {
   darkMode: boolean
   toggleDarkMode: () => void
 
-  // Panel collapse
+  // Panel collapse & sizing
   palettCollapsed: boolean
   propertiesCollapsed: boolean
+  paletteWidth: number
+  propertiesWidth: number
   togglePalette: () => void
   toggleProperties: () => void
+  setPaletteWidth: (width: number) => void
+  setPropertiesWidth: (width: number) => void
 
   // Grid configuration
   gridConfig: GridConfig
@@ -335,6 +339,8 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   darkMode: localStorage.getItem('darkMode') === 'true',
   palettCollapsed: false,
   propertiesCollapsed: false,
+  paletteWidth: 250,
+  propertiesWidth: 300,
   gridConfig: { lanes: [], stages: [], placements: [] },
   customCategories: [],
   customNodeTypes: [],
@@ -362,6 +368,8 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
 
   togglePalette: () => set({ palettCollapsed: !get().palettCollapsed }),
   toggleProperties: () => set({ propertiesCollapsed: !get().propertiesCollapsed }),
+  setPaletteWidth: (width) => set({ paletteWidth: Math.max(180, Math.min(500, width)) }),
+  setPropertiesWidth: (width) => set({ propertiesWidth: Math.max(200, Math.min(600, width)) }),
 
   setViewMode: (mode) => {
     // When switching to canvas, auto-layout nodes based on grid placement

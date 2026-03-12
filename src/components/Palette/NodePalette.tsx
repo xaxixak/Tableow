@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect, type DragEvent } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef, type DragEvent } from "react";
 import {
   ChevronDown,
   ChevronRight,
@@ -815,6 +815,9 @@ export default function NodePalette() {
   const removeCustomNodeType = useWorkflowStore((s) => s.removeCustomNodeType);
   const addCustomCategory = useWorkflowStore((s) => s.addCustomCategory);
   const collapsed = useWorkflowStore((s) => s.palettCollapsed);
+  const paletteWidth = useWorkflowStore((s) => s.paletteWidth);
+  const setPaletteWidth = useWorkflowStore((s) => s.setPaletteWidth);
+  const resizeRef = useRef<{ startX: number; startWidth: number } | null>(null);
   const togglePalette = useWorkflowStore((s) => s.togglePalette);
 
   const customTypeSet = useMemo(
@@ -873,6 +876,27 @@ export default function NodePalette() {
     }
   }, [nodeTypeToDelete, removeCustomNodeType]);
 
+  // Palette resize drag handlers
+  const handleResizeStart = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      resizeRef.current = { startX: e.clientX, startWidth: paletteWidth };
+      const handleMouseMove = (ev: MouseEvent) => {
+        if (!resizeRef.current) return;
+        const delta = ev.clientX - resizeRef.current.startX;
+        setPaletteWidth(resizeRef.current.startWidth + delta);
+      };
+      const handleMouseUp = () => {
+        resizeRef.current = null;
+        document.removeEventListener("mousemove", handleMouseMove);
+        document.removeEventListener("mouseup", handleMouseUp);
+      };
+      document.addEventListener("mousemove", handleMouseMove);
+      document.addEventListener("mouseup", handleMouseUp);
+    },
+    [paletteWidth, setPaletteWidth]
+  );
+
   if (collapsed) {
     return (
       <aside className="w-10 shrink-0 bg-white dark:bg-zinc-900 border-r border-slate-200 dark:border-zinc-700 flex flex-col h-full items-center py-2">
@@ -888,7 +912,15 @@ export default function NodePalette() {
   }
 
   return (
-    <aside className="w-[250px] shrink-0 bg-white dark:bg-zinc-900 border-r border-slate-200 dark:border-zinc-700 flex flex-col h-full overflow-hidden">
+    <aside
+      className="relative shrink-0 bg-white dark:bg-zinc-900 border-r border-slate-200 dark:border-zinc-700 flex flex-col h-full overflow-hidden"
+      style={{ width: `${paletteWidth}px` }}
+    >
+      {/* Resize handle */}
+      <div
+        onMouseDown={handleResizeStart}
+        className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize z-20 hover:bg-blue-400/40 active:bg-blue-500/50 transition-colors"
+      />
       {/* Header */}
       <div className="px-3 py-3 border-b border-slate-200 dark:border-zinc-700">
         <div className="flex items-center justify-between mb-2">

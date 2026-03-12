@@ -1,4 +1,4 @@
-import { useMemo, useCallback, useState } from "react";
+import { useMemo, useCallback, useState, useRef } from "react";
 import { Trash2, X, ChevronRight, Settings2, Plus, Edit, Trash } from "lucide-react";
 import { useWorkflowStore } from "../../store/workflowStore.ts";
 import { nodeRegistry } from "../../registry/index.ts";
@@ -98,6 +98,29 @@ export default function PropertiesPanel() {
   const selectNode = useWorkflowStore((s) => s.selectNode);
   const collapsed = useWorkflowStore((s) => s.propertiesCollapsed);
   const toggleProperties = useWorkflowStore((s) => s.toggleProperties);
+  const propertiesWidth = useWorkflowStore((s) => s.propertiesWidth);
+  const setPropertiesWidth = useWorkflowStore((s) => s.setPropertiesWidth);
+  const propResizeRef = useRef<{ startX: number; startWidth: number } | null>(null);
+
+  const handlePropResizeStart = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      propResizeRef.current = { startX: e.clientX, startWidth: propertiesWidth };
+      const handleMouseMove = (ev: MouseEvent) => {
+        if (!propResizeRef.current) return;
+        const delta = propResizeRef.current.startX - ev.clientX;
+        setPropertiesWidth(propResizeRef.current.startWidth + delta);
+      };
+      const handleMouseUp = () => {
+        propResizeRef.current = null;
+        document.removeEventListener("mousemove", handleMouseMove);
+        document.removeEventListener("mouseup", handleMouseUp);
+      };
+      document.addEventListener("mousemove", handleMouseMove);
+      document.addEventListener("mouseup", handleMouseUp);
+    },
+    [propertiesWidth, setPropertiesWidth]
+  );
   const customCategories = useWorkflowStore((s) => s.customCategories);
   const gridConfig = useWorkflowStore((s) => s.gridConfig);
   const registryVersion = useWorkflowStore((s) => s.registryVersion);
@@ -262,10 +285,22 @@ export default function PropertiesPanel() {
     return <EdgePropertiesPanel />;
   }
 
+  // Resize handle element (reused)
+  const resizeHandle = (
+    <div
+      onMouseDown={handlePropResizeStart}
+      className="absolute left-0 top-0 bottom-0 w-1.5 cursor-col-resize z-20 hover:bg-blue-400/40 active:bg-blue-500/50 transition-colors"
+    />
+  );
+
   // Empty state
   if (!selectedNode || !definition) {
     return (
-      <aside className="w-[300px] shrink-0 bg-white dark:bg-zinc-900 border-l border-slate-200 dark:border-zinc-700 flex flex-col h-full">
+      <aside
+        className="relative shrink-0 bg-white dark:bg-zinc-900 border-l border-slate-200 dark:border-zinc-700 flex flex-col h-full"
+        style={{ width: `${propertiesWidth}px` }}
+      >
+        {resizeHandle}
         <div className="px-4 py-3 border-b border-slate-200 dark:border-zinc-700 flex items-center justify-between">
           <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200">Properties</h2>
           <button
@@ -286,7 +321,11 @@ export default function PropertiesPanel() {
   }
 
   return (
-    <aside className="w-[300px] shrink-0 bg-white dark:bg-zinc-900 border-l border-slate-200 dark:border-zinc-700 flex flex-col h-full overflow-hidden">
+    <aside
+      className="relative shrink-0 bg-white dark:bg-zinc-900 border-l border-slate-200 dark:border-zinc-700 flex flex-col h-full overflow-hidden"
+      style={{ width: `${propertiesWidth}px` }}
+    >
+      {resizeHandle}
       {/* Header */}
       <div className="px-4 py-3 border-b border-slate-200 dark:border-zinc-700 flex items-center justify-between gap-2">
         <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200 truncate">
