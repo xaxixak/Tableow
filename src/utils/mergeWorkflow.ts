@@ -154,7 +154,14 @@ export function mergeWorkflow(
     if (existingCat) {
       categoryNumberMap.set(incomingCat.number, existingCat.number)
     } else {
-      const newNumber = getNextCategoryNumber(allCategories)
+      // Derive parent number for hierarchical numbering
+      const mergeParts = incomingCat.path.split('/')
+      let mergeParentNumber: string | undefined
+      if (mergeParts.length > 1) {
+        const mergeParentPath = mergeParts.slice(0, -1).join('/')
+        mergeParentNumber = allCategories.find((c) => c.path === mergeParentPath)?.number
+      }
+      const newNumber = getNextCategoryNumber(allCategories, mergeParentNumber)
       categoryNumberMap.set(incomingCat.number, newNumber)
       const newCat: CategoryDefinition = {
         path: incomingCat.path,

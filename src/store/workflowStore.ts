@@ -465,8 +465,16 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       return
     }
 
-    // Auto-assign category number
-    const number = getNextCategoryNumber(state.customCategories)
+    // Derive parent number for hierarchical numbering (C4 → C4.1)
+    const parts = path.split('/')
+    let parentNumber: string | undefined
+    if (parts.length > 1) {
+      const parentPath = parts.slice(0, -1).join('/')
+      const parentCat = state.customCategories.find((c) => c.path === parentPath)
+      parentNumber = parentCat?.number
+    }
+
+    const number = getNextCategoryNumber(state.customCategories, parentNumber)
     const order = state.customCategories.length
 
     const newCategory: CategoryDefinition = {
@@ -537,8 +545,14 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     // Find or create category
     let categoryDef = state.customCategories.find((c) => c.path === category)
     if (!categoryDef) {
-      // Auto-create category if it doesn't exist
-      const number = getNextCategoryNumber(state.customCategories)
+      // Auto-create category if it doesn't exist (hierarchical numbering)
+      const catParts = category.split('/')
+      let catParentNumber: string | undefined
+      if (catParts.length > 1) {
+        const catParentPath = catParts.slice(0, -1).join('/')
+        catParentNumber = state.customCategories.find((c) => c.path === catParentPath)?.number
+      }
+      const number = getNextCategoryNumber(state.customCategories, catParentNumber)
       categoryDef = {
         path: category,
         number,
@@ -595,10 +609,16 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
 
     // If category changed, re-number the node
     if (updates.category && updates.category !== oldDef.category) {
-      // Find or create target category
+      // Find or create target category (hierarchical numbering)
       categoryDef = state.customCategories.find((c) => c.path === updates.category)
       if (!categoryDef) {
-        const number = getNextCategoryNumber(state.customCategories)
+        const updCatParts = updates.category.split('/')
+        let updParentNumber: string | undefined
+        if (updCatParts.length > 1) {
+          const updParentPath = updCatParts.slice(0, -1).join('/')
+          updParentNumber = state.customCategories.find((c) => c.path === updParentPath)?.number
+        }
+        const number = getNextCategoryNumber(state.customCategories, updParentNumber)
         categoryDef = {
           path: updates.category,
           number,
@@ -852,11 +872,17 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     const type = `custom.${slug}-${crypto.randomUUID().slice(0, 8)}`
     const ports = baseTypeToPorts(input.baseType)
 
-    // Find or create category to assign number
+    // Find or create category to assign number (hierarchical numbering)
     let categoryDef = state.customCategories.find((c) => c.path === input.category)
     let updatedCategories = state.customCategories
     if (!categoryDef) {
-      const number = getNextCategoryNumber(state.customCategories)
+      const addParts = input.category.split('/')
+      let addParentNumber: string | undefined
+      if (addParts.length > 1) {
+        const addParentPath = addParts.slice(0, -1).join('/')
+        addParentNumber = state.customCategories.find((c) => c.path === addParentPath)?.number
+      }
+      const number = getNextCategoryNumber(state.customCategories, addParentNumber)
       categoryDef = { path: input.category, number, order: state.customCategories.length }
       updatedCategories = [...state.customCategories, categoryDef]
     }
@@ -936,12 +962,61 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     for (const def of state.customNodeTypes) {
       if (def.category) allPaths.add(def.category)
     }
-    // Build complete category list, sorted alphabetically, numbered sequentially
-    const sortedPaths = [...allPaths].sort((a, b) => a.localeCompare(b))
-    const renumberedCats: CategoryDefinition[] = sortedPaths.map((path, i) => {
-      return { path, number: `C${i + 1}`, order: i, colorIndex: i }
-    })
-    // Re-number all nodes within each category: C1-001, C1-002, ...
+
+    // Build hierarchical tree from paths, then number depth-first
+    // Each path like "A/B/C" → depth 0: "A", depth 1: "B" under "A", depth 2: "C" under "A/B"
+    interface PathNode { name: string; fullPath: string; children: Map<string, PathNode> }
+    const root: PathNode = { name: '', fullPath: '', children: new Map() }
+
+    for (const path of allPaths) {
+      const parts = path.split('/').map((p) => p.trim()).filter(Boolean)
+      let current = root
+      let pathSoFar = ''
+      for (const part of parts) {
+        pathSoFar = pathSoFar ? `${pathSoFar}/${part}` : part
+        if (!current.children.has(part)) {
+          current.children.set(part, { name: part, fullPath: pathSoFar, children: new Map() })
+        }
+        current = current.children.get(part)!
+      }
+    }
+
+    // Preserve user-set colorIndex from existing categories
+    const existingColorMap = new Map<string, number>()
+    for (const cat of state.customCategories) {
+      if (cat.colorIndex !== undefined) existingColorMap.set(cat.path, cat.colorIndex)
+    }
+
+    // Recursively number: top-level C1, C2, ..., children C1.1, C1.2, ...
+    const renumberedCats: CategoryDefinition[] = []
+    let globalOrder = 0
+    let topColorIndex = 0
+
+    function numberTree(node: PathNode, parentNumber: string | undefined) {
+      const sortedChildren = [...node.children.values()].sort((a, b) =>
+        a.name.localeCompare(b.name)
+      )
+      let childIndex = 1
+      for (const child of sortedChildren) {
+        const number = parentNumber ? `${parentNumber}.${childIndex}` : `C${childIndex}`
+        const colorIdx = existingColorMap.get(child.fullPath) ?? (parentNumber ? undefined : topColorIndex)
+        renumberedCats.push({
+          path: child.fullPath,
+          number,
+          order: globalOrder++,
+          colorIndex: colorIdx,
+        })
+        if (!parentNumber) topColorIndex++
+        childIndex++
+        // Recurse into subcategories
+        if (child.children.size > 0) {
+          numberTree(child, number)
+        }
+      }
+    }
+    numberTree(root, undefined)
+
+    // Re-number all nodes within each category: C1-001, C4.1-001, ...
     const counters = new Map<string, number>()
     const renumberedNodes = state.customNodeTypes.map((def) => {
       const catDef = renumberedCats.find((c) => c.path === def.category)

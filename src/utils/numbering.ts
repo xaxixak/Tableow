@@ -2,34 +2,52 @@ import type { NodeDefinition, CategoryDefinition } from "../types/index.ts";
 import type { WorkflowEdge } from "../types/workflow.ts";
 
 /**
- * Get the next available category number (C1, C2, C3, ...).
- * @param existingCategories - Array of existing category definitions
- * @returns Next category number (e.g., "C5" if highest is C4)
+ * Get the next available category number, with hierarchical support.
+ *
+ * - Top-level (no parentNumber): returns C1, C2, C3, ...
+ * - Subcategory (parentNumber="C4"): returns C4.1, C4.2, ...
+ * - Deeper nesting (parentNumber="C4.1"): returns C4.1.1, C4.1.2, ...
  */
 export function getNextCategoryNumber(
-  existingCategories: CategoryDefinition[]
+  existingCategories: CategoryDefinition[],
+  parentNumber?: string
 ): string {
-  if (existingCategories.length === 0) {
-    return "C1";
+  if (!parentNumber) {
+    // Top-level category: find max C{n} among top-level categories
+    if (existingCategories.length === 0) return "C1";
+
+    const numbers = existingCategories
+      .map((cat) => {
+        const match = cat.number.match(/^C(\d+)$/);
+        return match ? parseInt(match[1], 10) : 0;
+      })
+      .filter((n) => n > 0);
+
+    const maxNumber = Math.max(...numbers, 0);
+    return `C${maxNumber + 1}`;
   }
 
-  // Extract numeric parts from all category numbers
-  const numbers = existingCategories
+  // Subcategory: find max direct child index under parentNumber
+  // e.g., parentNumber="C4" → look for C4.1, C4.2, ... → return C4.{max+1}
+  const escapedParent = parentNumber.replace(/\./g, "\\.");
+  const childPattern = new RegExp(`^${escapedParent}\\.(\\d+)$`);
+
+  const childNumbers = existingCategories
     .map((cat) => {
-      const match = cat.number.match(/^C(\d+)$/);
+      const match = cat.number.match(childPattern);
       return match ? parseInt(match[1], 10) : 0;
     })
     .filter((n) => n > 0);
 
-  const maxNumber = Math.max(...numbers, 0);
-  return `C${maxNumber + 1}`;
+  const maxChild = Math.max(...childNumbers, 0);
+  return `${parentNumber}.${maxChild + 1}`;
 }
 
 /**
- * Get the next available node number for a given category (C1-001, C1-002, ...).
- * @param categoryNumber - Category number (e.g., "C1")
+ * Get the next available node number for a given category (C1-001, C4.1-002, ...).
+ * @param categoryNumber - Category number (e.g., "C1" or "C4.1")
  * @param existingNodes - Array of all custom node definitions
- * @returns Next node number (e.g., "C1-015" if highest in C1 is C1-014)
+ * @returns Next node number (e.g., "C4.1-015" if highest in C4.1 is C4.1-014)
  */
 export function getNextNodeNumber(
   categoryNumber: string,
@@ -45,10 +63,11 @@ export function getNextNodeNumber(
   }
 
   // Extract numeric parts from node numbers in this category
+  // Handles both C1-001 and C4.1-001 formats
   const numbers = categoryNodes
     .map((node) => {
       if (!node.number) return 0;
-      const match = node.number.match(/^C\d+-(\d+)$/);
+      const match = node.number.match(/^C[\d.]+-(\d+)$/);
       return match ? parseInt(match[1], 10) : 0;
     })
     .filter((n) => n > 0);
