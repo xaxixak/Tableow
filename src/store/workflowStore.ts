@@ -136,13 +136,13 @@ export interface WorkflowState {
     category: string
     description?: string
     icon?: string
-    baseType: 'process' | 'decision' | 'start' | 'output'
+    baseType: 'process' | 'decision' | 'start' | 'output' | 'document'
   }) => void
   updateCustomNodeType: (type: string, updates: {
     label?: string
     description?: string
     icon?: string
-    baseType?: 'process' | 'decision' | 'start' | 'output'
+    baseType?: 'process' | 'decision' | 'start' | 'output' | 'document'
     category?: string
   }) => void
   removeCustomNodeType: (type: string) => void
@@ -899,6 +899,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
         const ports = baseTypeToPorts(updates.baseType)
         updated.inputs = ports.inputs
         updated.outputs = ports.outputs
+        updated.flowType = updates.baseType as NodeDefinition['flowType']
       }
       if (updates.category !== undefined && updates.category !== d.category) {
         updated.category = updates.category
@@ -1695,11 +1696,17 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       customCats = rawCustomCats as CategoryDefinition[]
     }
 
-    // Migrate custom types to ensure they have customizable flag
+    // Migrate custom types to ensure they have customizable flag and flowType
     const migratedCustomTypes = customTypes.map((def) => ({
       ...def,
       customizable: def.customizable ?? true,
       isCustom: def.isCustom ?? true,
+      flowType: def.flowType ?? (
+        def.inputs?.length === 0 ? 'start' as const
+        : def.outputs?.length === 0 ? 'output' as const
+        : (def.outputs?.length ?? 0) >= 2 ? 'decision' as const
+        : 'process' as const
+      ),
     }))
 
     // Auto-create missing custom node definitions

@@ -344,10 +344,12 @@ function EditNodeModal({
   const updateCustomNodeType = useWorkflowStore((s) => s.updateCustomNodeType);
   const customCategories = useWorkflowStore((s) => s.customCategories);
   const currentBase = definition
-    ? definition.inputs.length === 0 ? "start"
-      : definition.outputs.length === 0 ? "output"
-      : definition.outputs.length >= 2 ? "decision"
-      : "process"
+    ? definition.flowType ?? (
+        definition.inputs.length === 0 ? "start"
+        : definition.outputs.length === 0 ? "output"
+        : definition.outputs.length >= 2 ? "decision"
+        : "process"
+      )
     : "process";
 
   const [label, setLabel] = useState(definition?.label ?? "");
@@ -363,10 +365,12 @@ function EditNodeModal({
       setDescription(definition.description ?? "");
       setIcon(definition.icon ?? ICON_PRESETS[0]);
       setCategory(definition.category);
-      const base = definition.inputs.length === 0 ? "start"
+      const base = definition.flowType ?? (
+        definition.inputs.length === 0 ? "start"
         : definition.outputs.length === 0 ? "output"
         : definition.outputs.length >= 2 ? "decision"
-        : "process";
+        : "process"
+      );
       setBaseType(base);
     }
   }, [definition, isOpen]);
@@ -379,7 +383,7 @@ function EditNodeModal({
         label: label.trim(),
         description: description.trim() || undefined,
         icon,
-        baseType: baseType as "process" | "decision" | "start" | "output",
+        baseType: baseType as "process" | "decision" | "start" | "output" | "document",
         category,
       });
       onClose();
@@ -726,10 +730,20 @@ function CategorySection({
       {/* Category content */}
       {open && (
         <>
-          {/* Nodes at this level */}
-          {hasDefinitions && (
-            <div className="flex flex-col gap-0.5 pb-1" style={{ paddingLeft: `${paddingLeft + 20}px` }}>
-              {node.definitions.map((def) => (
+          {/* Nodes at this level — also accepts drops for cross-category moves */}
+          <div
+            onDragOver={handleCategoryDragOver}
+            onDragLeave={handleCategoryDragLeave}
+            onDrop={handleCategoryDrop}
+            className={cn(
+              "flex flex-col gap-0.5 pb-1",
+              !hasDefinitions && "min-h-[32px]",
+              isDragOver && !hasDefinitions && "bg-blue-50 dark:bg-blue-950/30 rounded-sm"
+            )}
+            style={{ paddingLeft: `${paddingLeft + 20}px` }}
+          >
+            {hasDefinitions ? (
+              node.definitions.map((def) => (
                 <NodePaletteItem
                   key={def.type}
                   definition={def}
@@ -737,9 +751,13 @@ function CategorySection({
                   onEdit={() => setEditingNodeDef(def)}
                   onDelete={() => onDeleteCustomNode(def.type)}
                 />
-              ))}
-            </div>
-          )}
+              ))
+            ) : (
+              <div className="text-[10px] text-slate-400 dark:text-slate-500 py-1 italic">
+                {isDragOver ? "Drop here" : "No nodes — drag to add"}
+              </div>
+            )}
+          </div>
 
           {/* Nested subcategories */}
           {hasChildren &&
@@ -765,6 +783,7 @@ function CategorySection({
       />
 
       <EditNodeModal
+        key={editingNodeDef?.type ?? ""}
         isOpen={editingNodeDef !== null}
         definition={editingNodeDef}
         onClose={() => setEditingNodeDef(null)}
@@ -818,6 +837,8 @@ export default function NodePalette() {
   const paletteWidth = useWorkflowStore((s) => s.paletteWidth);
   const setPaletteWidth = useWorkflowStore((s) => s.setPaletteWidth);
   const resizeRef = useRef<{ startX: number; startWidth: number } | null>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const scrollIntervalRef = useRef<number | null>(null);
   const togglePalette = useWorkflowStore((s) => s.togglePalette);
 
   const customTypeSet = useMemo(
@@ -897,6 +918,65 @@ export default function NodePalette() {
     [paletteWidth, setPaletteWidth]
   );
 
+  // Auto-scroll when dragging near top/bottom edges of the scroll container
+  const scrollSpeedRef = useRef(0);
+
+  const handleScrollDragOver = useCallback(
+    (e: DragEvent<HTMLDivElement>) => {
+      if (
+        !e.dataTransfer.types.includes("application/palette-node-move") &&
+        !e.dataTransfer.types.includes("application/reactflow-type")
+      ) return;
+
+      const container = scrollRef.current;
+      if (!container) return;
+
+      const rect = container.getBoundingClientRect();
+      const y = e.clientY - rect.top;
+      const edgeZone = 40; // px from edge to trigger scroll
+      const maxSpeed = 12; // px per frame
+
+      if (y < edgeZone) {
+        scrollSpeedRef.current = -Math.ceil(maxSpeed * (1 - y / edgeZone));
+      } else if (y > rect.height - edgeZone) {
+        const distFromBottom = rect.height - y;
+        scrollSpeedRef.current = Math.ceil(maxSpeed * (1 - distFromBottom / edgeZone));
+      } else {
+        scrollSpeedRef.current = 0;
+      }
+
+      // Start interval if not already running and speed is non-zero
+      if (scrollSpeedRef.current !== 0 && !scrollIntervalRef.current) {
+        scrollIntervalRef.current = window.setInterval(() => {
+          if (scrollRef.current && scrollSpeedRef.current !== 0) {
+            scrollRef.current.scrollTop += scrollSpeedRef.current;
+          }
+        }, 16);
+      } else if (scrollSpeedRef.current === 0 && scrollIntervalRef.current) {
+        clearInterval(scrollIntervalRef.current);
+        scrollIntervalRef.current = null;
+      }
+    },
+    []
+  );
+
+  const handleScrollDragLeave = useCallback(() => {
+    scrollSpeedRef.current = 0;
+    if (scrollIntervalRef.current) {
+      clearInterval(scrollIntervalRef.current);
+      scrollIntervalRef.current = null;
+    }
+  }, []);
+
+  // Clean up interval on unmount
+  useEffect(() => {
+    return () => {
+      if (scrollIntervalRef.current) {
+        clearInterval(scrollIntervalRef.current);
+      }
+    };
+  }, []);
+
   if (collapsed) {
     return (
       <aside className="w-10 shrink-0 bg-white dark:bg-zinc-900 border-r border-slate-200 dark:border-zinc-700 flex flex-col h-full items-center py-2">
@@ -962,7 +1042,13 @@ export default function NodePalette() {
       </div>
 
       {/* Categories - Split into two sections */}
-      <div className="flex-1 overflow-y-auto">
+      <div
+        ref={scrollRef}
+        onDragOver={handleScrollDragOver}
+        onDragLeave={handleScrollDragLeave}
+        onDrop={handleScrollDragLeave}
+        className="flex-1 overflow-y-auto"
+      >
         {/* Node Library (Built-in) */}
         {builtInTree.children.size > 0 && (
           <div className="border-b border-slate-200 dark:border-zinc-700">
