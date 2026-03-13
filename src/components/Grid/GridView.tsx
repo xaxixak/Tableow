@@ -1,4 +1,4 @@
-import { useMemo, useState, useCallback, useEffect } from "react";
+import { useMemo, useState, useCallback, useEffect, useRef } from "react";
 import { Plus, LayoutGrid } from "lucide-react";
 import { useWorkflowStore } from "../../store/workflowStore.ts";
 import { cn } from "../../lib/utils.ts";
@@ -26,8 +26,19 @@ export default function GridView() {
   const selectedNodeId = useWorkflowStore((s) => s.selectedNodeId);
   const selectedNodeIds = useWorkflowStore((s) => s.selectedNodeIds);
   const selectedEdgeId = useWorkflowStore((s) => s.selectedEdgeId);
+  const selectMultipleNodes = useWorkflowStore((s) => s.selectMultipleNodes);
 
+  const scrollRef = useRef<HTMLDivElement>(null);
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
+
+  // Marquee drag selection
+  const [marquee, setMarquee] = useState<{
+    startX: number; startY: number;
+    currentX: number; currentY: number;
+    ctrlKey: boolean;
+  } | null>(null);
+  const marqueeActiveRef = useRef(false);
+  const prevSelectedRef = useRef<string[]>([]);
 
   const { lanes, stages, placements } = gridConfig;
 
@@ -166,9 +177,109 @@ export default function GridView() {
     return () => document.removeEventListener("click", handler);
   }, [contextMenu, closeContextMenu]);
 
+  // Marquee: mousedown on scroll container starts drag selection
+  const handleMarqueeStart = useCallback(
+    (e: React.MouseEvent) => {
+      // Only start on left button, on empty area (not on interactive elements)
+      if (e.button !== 0) return;
+      const target = e.target as HTMLElement;
+      if (target.closest("[data-node-id], button, input, a, [draggable='true']")) return;
+
+      const container = scrollRef.current;
+      if (!container) return;
+
+      const rect = container.getBoundingClientRect();
+      const x = e.clientX - rect.left + container.scrollLeft;
+      const y = e.clientY - rect.top + container.scrollTop;
+
+      // Save currently selected nodes for Ctrl+drag additive mode
+      if (e.ctrlKey || e.metaKey) {
+        prevSelectedRef.current = [...selectedNodeIds];
+      } else {
+        prevSelectedRef.current = [];
+      }
+
+      setMarquee({ startX: x, startY: y, currentX: x, currentY: y, ctrlKey: e.ctrlKey || e.metaKey });
+    },
+    [selectedNodeIds]
+  );
+
+  // Marquee: mousemove + mouseup as document listeners
+  useEffect(() => {
+    if (!marquee) return;
+
+    const container = scrollRef.current;
+    if (!container) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const rect = container.getBoundingClientRect();
+      const x = e.clientX - rect.left + container.scrollLeft;
+      const y = e.clientY - rect.top + container.scrollTop;
+
+      // Check 5px threshold before activating visual marquee
+      const dx = Math.abs(x - marquee.startX);
+      const dy = Math.abs(y - marquee.startY);
+      if (!marqueeActiveRef.current && (dx > 5 || dy > 5)) {
+        marqueeActiveRef.current = true;
+      }
+
+      setMarquee((prev) => prev ? { ...prev, currentX: x, currentY: y } : null);
+
+      // Live selection update while dragging
+      if (marqueeActiveRef.current) {
+        const mLeft = Math.min(marquee.startX, x);
+        const mTop = Math.min(marquee.startY, y);
+        const mRight = Math.max(marquee.startX, x);
+        const mBottom = Math.max(marquee.startY, y);
+
+        const nodeEls = container.querySelectorAll<HTMLElement>("[data-node-id]");
+        const hits: string[] = [];
+
+        for (const el of nodeEls) {
+          const elRect = el.getBoundingClientRect();
+          const elLeft = elRect.left - rect.left + container.scrollLeft;
+          const elTop = elRect.top - rect.top + container.scrollTop;
+          const elRight = elLeft + elRect.width;
+          const elBottom = elTop + elRect.height;
+
+          // Check intersection
+          if (elRight > mLeft && elLeft < mRight && elBottom > mTop && elTop < mBottom) {
+            hits.push(el.getAttribute("data-node-id")!);
+          }
+        }
+
+        // Merge with previous selection if Ctrl was held
+        const combined = marquee.ctrlKey
+          ? [...new Set([...prevSelectedRef.current, ...hits])]
+          : hits;
+
+        selectMultipleNodes(combined);
+      }
+    };
+
+    const handleMouseUp = () => {
+      if (marqueeActiveRef.current) {
+        // Prevent the click event from deselecting
+        setTimeout(() => { marqueeActiveRef.current = false; }, 0);
+      } else {
+        marqueeActiveRef.current = false;
+      }
+      setMarquee(null);
+    };
+
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
+    return () => {
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [marquee, selectMultipleNodes]);
+
   // Deselect node when clicking grid background
   const handleBackgroundClick = useCallback(
     (e: React.MouseEvent) => {
+      // Skip if we just finished a marquee drag
+      if (marqueeActiveRef.current) return;
       if (e.target === e.currentTarget) {
         selectNode(null);
       }
@@ -182,8 +293,10 @@ export default function GridView() {
     <div className="w-full h-full flex flex-col bg-slate-50 dark:bg-black">
       {/* Grid scroll area */}
       <div
+        ref={scrollRef}
         className="flex-1 overflow-auto relative"
         onClick={handleBackgroundClick}
+        onMouseDown={handleMarqueeStart}
         onContextMenu={handleBackgroundContextMenu}
       >
         {isEmpty ? (
@@ -324,6 +437,20 @@ export default function GridView() {
 
             {/* SVG connection overlay */}
             <GridConnections />
+
+            {/* Marquee selection overlay */}
+            {marquee && marqueeActiveRef.current && (() => {
+              const left = Math.min(marquee.startX, marquee.currentX);
+              const top = Math.min(marquee.startY, marquee.currentY);
+              const width = Math.abs(marquee.currentX - marquee.startX);
+              const height = Math.abs(marquee.currentY - marquee.startY);
+              return (
+                <div
+                  className="absolute border border-blue-500 bg-blue-500/10 pointer-events-none z-30"
+                  style={{ left, top, width, height }}
+                />
+              );
+            })()}
 
             {/* Add buttons (bottom edge) */}
             <div className="flex justify-center gap-2 py-2">
