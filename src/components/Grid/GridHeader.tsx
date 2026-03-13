@@ -128,7 +128,7 @@ function GridHeader({ stages }: GridHeaderProps) {
   const [resizingLaneCol, setResizingLaneCol] = useState<{ startX: number; startWidth: number } | null>(null);
 
   // Build hierarchical stage structure
-  const { parentStages, childrenByParent, topLevelStages } = useMemo(() => {
+  const { parentStages, childrenByParent, topLevelStages, topLevelNoChildIds } = useMemo(() => {
     const parents: StageDefinition[] = [];
     const children = new Map<string, StageDefinition[]>();
     const topLevel: StageDefinition[] = [];
@@ -152,7 +152,12 @@ function GridHeader({ stages }: GridHeaderProps) {
       }
     }
 
-    return { parentStages: parents, childrenByParent: children, topLevelStages: topLevel };
+    // Top-level stages that have NO children (rendered in parent row, empty in leaf row)
+    const topLevelNoChildIds = new Set(
+      topLevel.filter((s) => !children.has(s.id)).map((s) => s.id)
+    );
+
+    return { parentStages: parents, childrenByParent: children, topLevelStages: topLevel, topLevelNoChildIds };
   }, [stages]);
 
   // Flat list of leaf columns (for grid alignment)
@@ -423,11 +428,17 @@ function GridHeader({ stages }: GridHeaderProps) {
                 }}
                 onContextMenu={(e) => handleContextMenu(e, stage.id)}
               >
-                {children && (
-                  <>
-                    <GripHorizontal className="w-3 h-3 text-slate-300 shrink-0 opacity-0 group-hover/parent:opacity-100 transition-opacity" />
-                    {stage.label}
-                  </>
+                <GripHorizontal className="w-3 h-3 text-slate-300 shrink-0 opacity-0 group-hover/parent:opacity-100 transition-opacity" />
+                {children ? (
+                  stage.label
+                ) : (
+                  <InlineEdit
+                    value={stage.label}
+                    onCommit={(newLabel) => updateStage(stage.id, { label: newLabel })}
+                    bold={stage.bold}
+                    textColor={stage.textColor}
+                    fontSize={stage.fontSize}
+                  />
                 )}
               </div>
             );
@@ -457,49 +468,59 @@ function GridHeader({ stages }: GridHeaderProps) {
           />
         </div>
 
-        {leafColumns.map((stage) => (
-          <div
-            key={stage.id}
-            draggable={!resizing}
-            onDragStart={(e) => handleStageDragStart(e, stage.id)}
-            onDragOver={(e) => handleStageDragOver(e, stage.id)}
-            onDragLeave={handleStageDragLeave}
-            onDrop={(e) => handleStageDrop(e, stage.id)}
-            onDragEnd={handleStageDragEnd}
-            className={cn(
-              "relative flex items-center justify-center gap-1 px-2 py-2 group/stage",
-              "bg-slate-100 dark:bg-zinc-950 border-r border-b border-slate-300 dark:border-zinc-800",
-              "min-w-[80px] cursor-grab active:cursor-grabbing",
-              dragOverStageId === stage.id && "border-l-2 border-l-blue-500 bg-blue-50 dark:bg-blue-950"
-            )}
-            style={{
-              ...(stage.color ? {
-                borderBottomWidth: "3px",
-                borderBottomColor: stage.color,
-                backgroundColor: darkMode ? stage.color + "20" : stage.color + "15",
-              } : {}),
-            }}
-            onContextMenu={(e) => handleContextMenu(e, stage.id)}
-          >
-            <GripHorizontal className="w-3 h-3 text-slate-300 shrink-0 opacity-0 group-hover/stage:opacity-100 transition-opacity" />
-            <InlineEdit
-              value={stage.label}
-              onCommit={(newLabel) => updateStage(stage.id, { label: newLabel })}
-              bold={stage.bold}
-              textColor={stage.textColor}
-              fontSize={stage.fontSize}
-            />
-            {/* Resize handle */}
+        {leafColumns.map((stage) => {
+          // Top-level stages without children: label is already in parent row, show empty cell here
+          const isParentRowStage = topLevelNoChildIds.has(stage.id);
+
+          return (
             <div
-              onMouseDown={(e) => handleResizeStart(e, stage.id, stage.width ?? 150)}
+              key={stage.id}
+              draggable={!resizing && !isParentRowStage}
+              onDragStart={isParentRowStage ? undefined : (e) => handleStageDragStart(e, stage.id)}
+              onDragOver={(e) => handleStageDragOver(e, stage.id)}
+              onDragLeave={handleStageDragLeave}
+              onDrop={(e) => handleStageDrop(e, stage.id)}
+              onDragEnd={handleStageDragEnd}
               className={cn(
-                "absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize z-10",
-                "hover:bg-blue-400/50",
-                resizing?.stageId === stage.id && "bg-blue-500/60"
+                "relative flex items-center justify-center gap-1 px-2 py-2 group/stage",
+                "bg-slate-100 dark:bg-zinc-950 border-r border-b border-slate-300 dark:border-zinc-800",
+                "min-w-[80px]",
+                !isParentRowStage && "cursor-grab active:cursor-grabbing",
+                dragOverStageId === stage.id && "border-l-2 border-l-blue-500 bg-blue-50 dark:bg-blue-950"
               )}
-            />
-          </div>
-        ))}
+              style={{
+                ...(stage.color && !isParentRowStage ? {
+                  borderBottomWidth: "3px",
+                  borderBottomColor: stage.color,
+                  backgroundColor: darkMode ? stage.color + "20" : stage.color + "15",
+                } : {}),
+              }}
+              onContextMenu={isParentRowStage ? undefined : (e) => handleContextMenu(e, stage.id)}
+            >
+              {!isParentRowStage && (
+                <>
+                  <GripHorizontal className="w-3 h-3 text-slate-300 shrink-0 opacity-0 group-hover/stage:opacity-100 transition-opacity" />
+                  <InlineEdit
+                    value={stage.label}
+                    onCommit={(newLabel) => updateStage(stage.id, { label: newLabel })}
+                    bold={stage.bold}
+                    textColor={stage.textColor}
+                    fontSize={stage.fontSize}
+                  />
+                </>
+              )}
+              {/* Resize handle */}
+              <div
+                onMouseDown={(e) => handleResizeStart(e, stage.id, stage.width ?? 150)}
+                className={cn(
+                  "absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize z-10",
+                  "hover:bg-blue-400/50",
+                  resizing?.stageId === stage.id && "bg-blue-500/60"
+                )}
+              />
+            </div>
+          );
+        })}
       </div>
 
       {/* Context menu */}
