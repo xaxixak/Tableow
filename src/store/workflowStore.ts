@@ -28,6 +28,7 @@ import {
   getNextEdgeNumber,
 } from '@/utils/numbering.ts'
 import { mergeWorkflow, buildClipboardWorkflow } from '@/utils/mergeWorkflow.ts'
+import { generateAIContext } from '@/utils/aiContext.ts'
 
 interface HistoryEntry {
   nodes: WorkflowNode[]
@@ -1799,7 +1800,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
 
   getWorkflow: () => {
     const { nodes, edges, metadata, gridConfig, customNodeTypes, customCategories } = get()
-    return {
+    const workflow: Workflow = {
       metadata: {
         ...metadata,
         updatedAt: new Date().toISOString(),
@@ -1810,6 +1811,8 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       customNodeTypes: customNodeTypes.length > 0 ? customNodeTypes : undefined,
       customCategories: customCategories.length > 0 ? customCategories : undefined,
     }
+    workflow.aiContext = generateAIContext(workflow)
+    return workflow
   },
 
   saveToRecent: () => {

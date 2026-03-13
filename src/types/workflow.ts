@@ -1,6 +1,7 @@
 import type { Node, Edge } from '@xyflow/react'
 import type { NodeDefinition, CategoryDefinition } from './node.ts'
 import type { GridConfig } from './grid.ts'
+import type { AIContext } from '../utils/aiContext.ts'
 
 /**
  * Data stored on each workflow node instance.
@@ -77,4 +78,6 @@ export interface Workflow {
   customNodeTypes?: NodeDefinition[]
   /** User-created category definitions with auto-numbering (persisted with the workflow) */
   customCategories?: CategoryDefinition[]
+  /** Auto-generated AI-readable analysis of the workflow structure */
+  aiContext?: AIContext
 }
