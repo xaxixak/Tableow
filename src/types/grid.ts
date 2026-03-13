@@ -3,6 +3,9 @@ export interface LaneDefinition {
   id: string
   label: string
   color?: string
+  bold?: boolean
+  textColor?: string
+  fontSize?: number
   parentId?: string
   order: number
 }
@@ -15,6 +18,10 @@ export interface StageDefinition {
   order: number
   /** Column width in pixels (default: 150) */
   width?: number
+  color?: string
+  bold?: boolean
+  textColor?: string
+  fontSize?: number
 }
 
 /** Assignment of a node to a lane×stage cell */

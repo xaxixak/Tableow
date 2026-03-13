@@ -1,5 +1,5 @@
 import { memo, useState, useCallback, useMemo, useRef, useEffect, type DragEvent } from "react";
-import { ChevronDown, ChevronRight, Plus, Trash2, Edit3, Palette, GripVertical, ArrowUp, ArrowDown } from "lucide-react";
+import { ChevronDown, ChevronRight, Plus, Trash2, Edit3, Palette, GripVertical, ArrowUp, ArrowDown, Bold, Type } from "lucide-react";
 import { useWorkflowStore } from "../../store/workflowStore.ts";
 import { cn } from "../../lib/utils.ts";
 import type { LaneDefinition, StageDefinition, GridPlacement } from "../../types/grid.ts";
@@ -10,6 +10,14 @@ interface ContextMenuState {
   x: number;
   y: number;
 }
+
+const FONT_SIZES = [
+  { label: "Small", value: 11 },
+  { label: "Normal", value: undefined },
+  { label: "Medium", value: 14 },
+  { label: "Large", value: 16 },
+  { label: "XL", value: 20 },
+];
 
 const LANE_COLORS = [
   { label: "Default", hex: undefined },
@@ -152,6 +160,27 @@ function GridLane({
     [lane.id, updateLane, closeContextMenu]
   );
 
+  const handleTextColorChange = useCallback(
+    (hex: string | undefined) => {
+      updateLane(lane.id, { textColor: hex });
+      closeContextMenu();
+    },
+    [lane.id, updateLane, closeContextMenu]
+  );
+
+  const handleBoldToggle = useCallback(() => {
+    updateLane(lane.id, { bold: !lane.bold });
+    closeContextMenu();
+  }, [lane.id, lane.bold, updateLane, closeContextMenu]);
+
+  const handleFontSizeChange = useCallback(
+    (size: number | undefined) => {
+      updateLane(lane.id, { fontSize: size });
+      closeContextMenu();
+    },
+    [lane.id, updateLane, closeContextMenu]
+  );
+
   // Lane drag-to-reorder handlers
   const handleLaneDragStart = useCallback(
     (e: DragEvent<HTMLDivElement>) => {
@@ -286,11 +315,25 @@ function GridLane({
                 }
               }}
               className="px-1 py-0.5 text-xs font-medium border border-blue-400 rounded bg-white dark:bg-zinc-900 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500/30 min-w-[60px]"
+              style={{
+                fontWeight: lane.bold ? "bold" : undefined,
+                color: lane.textColor || undefined,
+                fontSize: lane.fontSize ? `${lane.fontSize}px` : undefined,
+              }}
             />
           ) : (
             <span
               onDoubleClick={() => setEditing(true)}
-              className="text-xs font-medium text-slate-700 dark:text-slate-300 truncate cursor-default"
+              className={cn(
+                "truncate cursor-default",
+                !lane.fontSize && "text-xs",
+                !lane.textColor && "text-slate-700 dark:text-slate-300",
+                lane.bold ? "font-bold" : "font-medium",
+              )}
+              style={{
+                color: lane.textColor || undefined,
+                fontSize: lane.fontSize ? `${lane.fontSize}px` : undefined,
+              }}
               title="Double-click to rename"
             >
               {lane.label}
@@ -367,25 +410,83 @@ function GridLane({
             Insert Below
           </button>
 
-          {/* Color submenu */}
-          <div className="px-3 py-1.5">
-            <div className="flex items-center gap-1.5 mb-1">
-              <Palette className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
-              <span className="text-xs text-slate-500 dark:text-slate-400">Color</span>
+          {/* Style section */}
+          <div className="px-3 py-1.5 space-y-2">
+            {/* Bold toggle + Size */}
+            <div className="flex items-center gap-1">
+              <button
+                onClick={handleBoldToggle}
+                className={cn(
+                  "flex items-center gap-1.5 px-1.5 py-1 text-sm rounded transition-colors",
+                  lane.bold
+                    ? "bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300"
+                    : "text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-zinc-800"
+                )}
+              >
+                <Bold className="w-3.5 h-3.5" />
+                <span className="text-xs">Bold</span>
+              </button>
+              <div className="flex items-center gap-0.5 ml-auto">
+                {FONT_SIZES.map((s) => (
+                  <button
+                    key={s.label}
+                    onClick={() => handleFontSizeChange(s.value)}
+                    className={cn(
+                      "px-1.5 py-0.5 text-[10px] rounded transition-colors",
+                      (lane.fontSize ?? undefined) === s.value
+                        ? "bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 font-semibold"
+                        : "text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-zinc-800"
+                    )}
+                    title={s.label}
+                  >
+                    {s.label}
+                  </button>
+                ))}
+              </div>
             </div>
-            <div className="flex gap-1 flex-wrap">
-              {LANE_COLORS.map((c) => (
-                <button
-                  key={c.label}
-                  onClick={() => handleColorChange(c.hex)}
-                  className={cn(
-                    "w-5 h-5 rounded-full border-2 transition-transform hover:scale-125",
-                    lane.color === c.hex ? "border-slate-800 dark:border-white scale-110" : "border-slate-200 dark:border-zinc-600",
-                  )}
-                  style={{ backgroundColor: c.hex ?? (darkMode ? "#18181b" : "#ffffff") }}
-                  title={c.label}
-                />
-              ))}
+
+            {/* Background color */}
+            <div>
+              <div className="flex items-center gap-1.5 mb-1">
+                <Palette className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
+                <span className="text-xs text-slate-500 dark:text-slate-400">Color</span>
+              </div>
+              <div className="flex gap-1 flex-wrap">
+                {LANE_COLORS.map((c) => (
+                  <button
+                    key={c.label}
+                    onClick={() => handleColorChange(c.hex)}
+                    className={cn(
+                      "w-5 h-5 rounded-full border-2 transition-transform hover:scale-125",
+                      lane.color === c.hex ? "border-slate-800 dark:border-white scale-110" : "border-slate-200 dark:border-zinc-600",
+                    )}
+                    style={{ backgroundColor: c.hex ?? (darkMode ? "#18181b" : "#ffffff") }}
+                    title={c.label}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* Text color */}
+            <div>
+              <div className="flex items-center gap-1.5 mb-1">
+                <Type className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
+                <span className="text-xs text-slate-500 dark:text-slate-400">Text Color</span>
+              </div>
+              <div className="flex gap-1 flex-wrap">
+                {LANE_COLORS.map((c) => (
+                  <button
+                    key={`text-${c.label}`}
+                    onClick={() => handleTextColorChange(c.hex)}
+                    className={cn(
+                      "w-5 h-5 rounded-full border-2 transition-transform hover:scale-125",
+                      lane.textColor === c.hex ? "border-slate-800 dark:border-white scale-110" : "border-slate-200 dark:border-zinc-600",
+                    )}
+                    style={{ backgroundColor: c.hex ?? (darkMode ? "#18181b" : "#ffffff") }}
+                    title={c.label}
+                  />
+                ))}
+              </div>
             </div>
           </div>
 

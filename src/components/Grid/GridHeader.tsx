@@ -1,8 +1,28 @@
 import { memo, useState, useCallback, useMemo, useRef, useEffect, type DragEvent } from "react";
-import { Plus, Trash2, Edit3, GripHorizontal, ArrowLeft, ArrowRight } from "lucide-react";
+import { Plus, Trash2, Edit3, GripHorizontal, ArrowLeft, ArrowRight, Bold, Palette, Type } from "lucide-react";
 import { useWorkflowStore } from "../../store/workflowStore.ts";
 import { cn } from "../../lib/utils.ts";
 import type { StageDefinition } from "../../types/grid.ts";
+
+const FONT_SIZES = [
+  { label: "Small", value: 11 },
+  { label: "Normal", value: undefined },
+  { label: "Medium", value: 14 },
+  { label: "Large", value: 16 },
+  { label: "XL", value: 20 },
+];
+
+const STAGE_COLORS = [
+  { label: "Default", hex: undefined },
+  { label: "Blue", hex: "#3b82f6" },
+  { label: "Green", hex: "#22c55e" },
+  { label: "Cyan", hex: "#06b6d4" },
+  { label: "Amber", hex: "#f59e0b" },
+  { label: "Red", hex: "#ef4444" },
+  { label: "Purple", hex: "#a855f7" },
+  { label: "Pink", hex: "#ec4899" },
+  { label: "Orange", hex: "#f97316" },
+];
 
 interface ContextMenuState {
   x: number;
@@ -17,9 +37,15 @@ interface GridHeaderProps {
 function InlineEdit({
   value,
   onCommit,
+  bold,
+  textColor,
+  fontSize,
 }: {
   value: string;
   onCommit: (newValue: string) => void;
+  bold?: boolean;
+  textColor?: string;
+  fontSize?: number;
 }) {
   const [editing, setEditing] = useState(false);
   const [editValue, setEditValue] = useState(value);
@@ -58,6 +84,11 @@ function InlineEdit({
           }
         }}
         className="px-1 py-0.5 text-xs font-semibold border border-blue-400 rounded bg-white dark:bg-zinc-900 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500/30 w-full min-w-[60px]"
+        style={{
+          fontWeight: bold ? "bold" : undefined,
+          color: textColor || undefined,
+          fontSize: fontSize ? `${fontSize}px` : undefined,
+        }}
       />
     );
   }
@@ -65,7 +96,16 @@ function InlineEdit({
   return (
     <span
       onDoubleClick={() => setEditing(true)}
-      className="text-xs font-semibold text-slate-600 dark:text-slate-300 truncate cursor-default select-none"
+      className={cn(
+        "truncate cursor-default select-none",
+        !fontSize && "text-xs",
+        !textColor && "text-slate-600 dark:text-slate-300",
+        bold ? "font-bold" : "font-semibold",
+      )}
+      style={{
+        color: textColor || undefined,
+        fontSize: fontSize ? `${fontSize}px` : undefined,
+      }}
       title="Double-click to rename"
     >
       {value}
@@ -189,6 +229,43 @@ function GridHeader({ stages }: GridHeaderProps) {
     }
     closeContextMenu();
   }, [contextMenu, insertStage, closeContextMenu]);
+
+  const handleColorChange = useCallback(
+    (hex: string | undefined) => {
+      if (!contextMenu) return;
+      updateStage(contextMenu.stageId, { color: hex });
+      closeContextMenu();
+    },
+    [contextMenu, updateStage, closeContextMenu]
+  );
+
+  const handleTextColorChange = useCallback(
+    (hex: string | undefined) => {
+      if (!contextMenu) return;
+      updateStage(contextMenu.stageId, { textColor: hex });
+      closeContextMenu();
+    },
+    [contextMenu, updateStage, closeContextMenu]
+  );
+
+  const handleBoldToggle = useCallback(() => {
+    if (!contextMenu) return;
+    const stage = stages.find((s) => s.id === contextMenu.stageId);
+    if (!stage) return;
+    updateStage(contextMenu.stageId, { bold: !stage.bold });
+    closeContextMenu();
+  }, [contextMenu, stages, updateStage, closeContextMenu]);
+
+  const handleFontSizeChange = useCallback(
+    (size: number | undefined) => {
+      if (!contextMenu) return;
+      updateStage(contextMenu.stageId, { fontSize: size });
+      closeContextMenu();
+    },
+    [contextMenu, updateStage, closeContextMenu]
+  );
+
+  const darkMode = useWorkflowStore((s) => s.darkMode);
 
   // Stage drag-to-reorder handlers
   const handleStageDragStart = useCallback(
@@ -327,12 +404,22 @@ function GridHeader({ stages }: GridHeaderProps) {
                 className={cn(
                   "flex items-center justify-center gap-1 px-2 py-1.5 group/parent",
                   "bg-slate-100 dark:bg-zinc-950 border-r border-b border-slate-300 dark:border-zinc-800",
-                  "text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider",
+                  "uppercase tracking-wider",
+                  !stage.fontSize && "text-xs",
+                  !stage.textColor && "text-slate-500 dark:text-slate-400",
+                  stage.bold ? "font-bold" : "font-semibold",
                   "cursor-grab active:cursor-grabbing",
                   dragOverStageId === stage.id && "border-l-2 border-l-blue-500 bg-blue-50 dark:bg-blue-950"
                 )}
                 style={{
                   gridColumn: `span ${span}`,
+                  color: stage.textColor || undefined,
+                  fontSize: stage.fontSize ? `${stage.fontSize}px` : undefined,
+                  ...(stage.color ? {
+                    borderBottomWidth: "3px",
+                    borderBottomColor: stage.color,
+                    backgroundColor: darkMode ? stage.color + "20" : stage.color + "15",
+                  } : {}),
                 }}
                 onContextMenu={(e) => handleContextMenu(e, stage.id)}
               >
@@ -385,12 +472,22 @@ function GridHeader({ stages }: GridHeaderProps) {
               "min-w-[80px] cursor-grab active:cursor-grabbing",
               dragOverStageId === stage.id && "border-l-2 border-l-blue-500 bg-blue-50 dark:bg-blue-950"
             )}
+            style={{
+              ...(stage.color ? {
+                borderBottomWidth: "3px",
+                borderBottomColor: stage.color,
+                backgroundColor: darkMode ? stage.color + "20" : stage.color + "15",
+              } : {}),
+            }}
             onContextMenu={(e) => handleContextMenu(e, stage.id)}
           >
             <GripHorizontal className="w-3 h-3 text-slate-300 shrink-0 opacity-0 group-hover/stage:opacity-100 transition-opacity" />
             <InlineEdit
               value={stage.label}
               onCommit={(newLabel) => updateStage(stage.id, { label: newLabel })}
+              bold={stage.bold}
+              textColor={stage.textColor}
+              fontSize={stage.fontSize}
             />
             {/* Resize handle */}
             <div
@@ -406,51 +503,135 @@ function GridHeader({ stages }: GridHeaderProps) {
       </div>
 
       {/* Context menu */}
-      {contextMenu && (
-        <div
-          className="fixed z-50 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg shadow-lg py-1 min-w-[160px]"
-          style={{ left: contextMenu.x, top: contextMenu.y }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <button
-            onClick={handleRename}
-            className="flex items-center gap-2 w-full px-3 py-1.5 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-zinc-800"
+      {contextMenu && (() => {
+        const menuStage = stages.find((s) => s.id === contextMenu.stageId);
+        return (
+          <div
+            className="fixed z-50 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg shadow-lg py-1 min-w-[180px]"
+            style={{ left: contextMenu.x, top: contextMenu.y }}
+            onClick={(e) => e.stopPropagation()}
           >
-            <Edit3 className="w-3.5 h-3.5" />
-            Rename
-          </button>
-          <button
-            onClick={handleAddSubStage}
-            className="flex items-center gap-2 w-full px-3 py-1.5 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-zinc-800"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            Add Sub-stage
-          </button>
-          <hr className="my-1 border-slate-100 dark:border-zinc-700" />
-          <button
-            onClick={handleInsertBefore}
-            className="flex items-center gap-2 w-full px-3 py-1.5 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-zinc-800"
-          >
-            <ArrowLeft className="w-3.5 h-3.5" />
-            Insert Before
-          </button>
-          <button
-            onClick={handleInsertAfter}
-            className="flex items-center gap-2 w-full px-3 py-1.5 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-zinc-800"
-          >
-            <ArrowRight className="w-3.5 h-3.5" />
-            Insert After
-          </button>
-          <hr className="my-1 border-slate-100 dark:border-zinc-700" />
-          <button
-            onClick={handleDelete}
-            className="flex items-center gap-2 w-full px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-950"
-          >
-            <Trash2 className="w-3.5 h-3.5" />
-            Delete
-          </button>
-        </div>
-      )}
+            <button
+              onClick={handleRename}
+              className="flex items-center gap-2 w-full px-3 py-1.5 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-zinc-800"
+            >
+              <Edit3 className="w-3.5 h-3.5" />
+              Rename
+            </button>
+            <button
+              onClick={handleAddSubStage}
+              className="flex items-center gap-2 w-full px-3 py-1.5 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-zinc-800"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              Add Sub-stage
+            </button>
+            <hr className="my-1 border-slate-100 dark:border-zinc-700" />
+            <button
+              onClick={handleInsertBefore}
+              className="flex items-center gap-2 w-full px-3 py-1.5 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-zinc-800"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              Insert Before
+            </button>
+            <button
+              onClick={handleInsertAfter}
+              className="flex items-center gap-2 w-full px-3 py-1.5 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-zinc-800"
+            >
+              <ArrowRight className="w-3.5 h-3.5" />
+              Insert After
+            </button>
+
+            {/* Style section */}
+            <div className="px-3 py-1.5 space-y-2">
+              {/* Bold toggle + Size */}
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={handleBoldToggle}
+                  className={cn(
+                    "flex items-center gap-1.5 px-1.5 py-1 text-sm rounded transition-colors",
+                    menuStage?.bold
+                      ? "bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300"
+                      : "text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-zinc-800"
+                  )}
+                >
+                  <Bold className="w-3.5 h-3.5" />
+                  <span className="text-xs">Bold</span>
+                </button>
+                <div className="flex items-center gap-0.5 ml-auto">
+                  {FONT_SIZES.map((s) => (
+                    <button
+                      key={s.label}
+                      onClick={() => handleFontSizeChange(s.value)}
+                      className={cn(
+                        "px-1.5 py-0.5 text-[10px] rounded transition-colors",
+                        (menuStage?.fontSize ?? undefined) === s.value
+                          ? "bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 font-semibold"
+                          : "text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-zinc-800"
+                      )}
+                      title={s.label}
+                    >
+                      {s.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Background color */}
+              <div>
+                <div className="flex items-center gap-1.5 mb-1">
+                  <Palette className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
+                  <span className="text-xs text-slate-500 dark:text-slate-400">Color</span>
+                </div>
+                <div className="flex gap-1 flex-wrap">
+                  {STAGE_COLORS.map((c) => (
+                    <button
+                      key={c.label}
+                      onClick={() => handleColorChange(c.hex)}
+                      className={cn(
+                        "w-5 h-5 rounded-full border-2 transition-transform hover:scale-125",
+                        menuStage?.color === c.hex ? "border-slate-800 dark:border-white scale-110" : "border-slate-200 dark:border-zinc-600",
+                      )}
+                      style={{ backgroundColor: c.hex ?? (darkMode ? "#18181b" : "#ffffff") }}
+                      title={c.label}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              {/* Text color */}
+              <div>
+                <div className="flex items-center gap-1.5 mb-1">
+                  <Type className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
+                  <span className="text-xs text-slate-500 dark:text-slate-400">Text Color</span>
+                </div>
+                <div className="flex gap-1 flex-wrap">
+                  {STAGE_COLORS.map((c) => (
+                    <button
+                      key={`text-${c.label}`}
+                      onClick={() => handleTextColorChange(c.hex)}
+                      className={cn(
+                        "w-5 h-5 rounded-full border-2 transition-transform hover:scale-125",
+                        menuStage?.textColor === c.hex ? "border-slate-800 dark:border-white scale-110" : "border-slate-200 dark:border-zinc-600",
+                      )}
+                      style={{ backgroundColor: c.hex ?? (darkMode ? "#18181b" : "#ffffff") }}
+                      title={c.label}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <hr className="my-1 border-slate-100 dark:border-zinc-700" />
+            <button
+              onClick={handleDelete}
+              className="flex items-center gap-2 w-full px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-950"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              Delete
+            </button>
+          </div>
+        );
+      })()}
     </>
   );
 }
