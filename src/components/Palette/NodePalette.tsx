@@ -282,7 +282,7 @@ function AddNodeModal({
             <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">
               Type
             </label>
-            <select value={baseType} onChange={(e) => setBaseType(e.target.value)} className={inputCls}>
+            <select value={baseType} onChange={(e) => setBaseType(e.target.value as typeof baseType)} className={inputCls}>
               {BASE_TYPES.map((bt) => (
                 <option key={bt.value} value={bt.value}>{bt.label}</option>
               ))}
@@ -429,7 +429,7 @@ function EditNodeModal({
             <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">
               Type
             </label>
-            <select value={baseType} onChange={(e) => setBaseType(e.target.value)} className={inputCls}>
+            <select value={baseType} onChange={(e) => setBaseType(e.target.value as typeof baseType)} className={inputCls}>
               {BASE_TYPES.map((bt) => (
                 <option key={bt.value} value={bt.value}>{bt.label}</option>
               ))}
