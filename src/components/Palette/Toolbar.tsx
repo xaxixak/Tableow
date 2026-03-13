@@ -20,6 +20,7 @@ import {
   Copy,
   Clipboard,
   Hash,
+  LayoutTemplate,
 } from "lucide-react";
 import { useWorkflowStore } from "../../store/workflowStore.ts";
 import type { Workflow } from "../../types/index.ts";
@@ -65,6 +66,7 @@ export default function Toolbar() {
   const [importConfirmOpen, setImportConfirmOpen] = useState(false);
   const [pendingImportWorkflow, setPendingImportWorkflow] = useState<Workflow | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const templateFileInputRef = useRef<HTMLInputElement>(null);
   const importFileInputRef = useRef<HTMLInputElement>(null);
 
   // Sync nameValue when metadata.name changes (e.g., after loadWorkflow)
@@ -133,6 +135,39 @@ export default function Toolbar() {
           loadWorkflow(data);
           setNameValue(data.metadata.name);
           setCurrentFileName(fileName);
+        } catch {
+          alert("Invalid workflow file.");
+        }
+      };
+      reader.readAsText(file);
+      event.target.value = "";
+    },
+    [loadWorkflow]
+  );
+
+  const handleLoadTemplate = useCallback(
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+      if (!file) return;
+
+      const fileName = file.name.replace(/\.json$/i, "");
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const data = JSON.parse(e.target?.result as string) as Workflow;
+          // Template mode: load structure only (lanes + stages), no nodes or connections
+          data.nodes = [];
+          data.edges = [];
+          if (data.gridConfig) {
+            data.gridConfig.placements = [];
+          }
+          if (!data.metadata.name || data.metadata.name === "Untitled Workflow") {
+            data.metadata.name = fileName;
+          }
+          loadWorkflow(data);
+          setNameValue(data.metadata.name);
+          setCurrentFileName(null);
         } catch {
           alert("Invalid workflow file.");
         }
@@ -503,6 +538,25 @@ export default function Toolbar() {
           type="file"
           accept=".json"
           onChange={handleLoad}
+          className="hidden"
+        />
+
+        <button
+          onClick={() => templateFileInputRef.current?.click()}
+          className={cn(
+            "flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md",
+            "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors"
+          )}
+          title="Load template (structure without connections)"
+        >
+          <LayoutTemplate className="w-4 h-4" />
+          <span className="hidden sm:inline">Template</span>
+        </button>
+        <input
+          ref={templateFileInputRef}
+          type="file"
+          accept=".json"
+          onChange={handleLoadTemplate}
           className="hidden"
         />
 
