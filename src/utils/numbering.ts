@@ -1,4 +1,5 @@
 import type { NodeDefinition, CategoryDefinition } from "../types/index.ts";
+import type { LaneDefinition, StageDefinition } from "../types/grid.ts";
 import type { WorkflowEdge } from "../types/workflow.ts";
 
 /**
@@ -100,4 +101,48 @@ export function getNextEdgeNumber(existingEdges: WorkflowEdge[]): string {
 
   const maxNumber = Math.max(...numbers, 0);
   return `E${maxNumber + 1}`;
+}
+
+/**
+ * Generic hierarchical renumbering for items with parentId/order.
+ * Walks the tree by parentId, sorted by order, assigning numbers like:
+ *   prefix1, prefix2, ... (top-level)
+ *   prefix1.1, prefix1.2, ... (children)
+ *   prefix1.1.1, ... (deeper)
+ */
+function renumberHierarchical<T extends { id: string; parentId?: string; order: number; number?: string }>(
+  items: T[],
+  prefix: string,
+  parentId: string | undefined,
+  parentNumber: string | undefined,
+): void {
+  const children = items
+    .filter((item) => (item.parentId ?? undefined) === parentId)
+    .sort((a, b) => a.order - b.order);
+
+  let counter = 1;
+  for (const child of children) {
+    const num = parentNumber ? `${parentNumber}.${counter}` : `${prefix}${counter}`;
+    child.number = num;
+    counter++;
+    renumberHierarchical(items, prefix, child.id, num);
+  }
+}
+
+/**
+ * Renumber all lanes hierarchically: L1, L1.1, L1.2, L2, ...
+ * Mutates the items in-place and returns the same array.
+ */
+export function renumberLanes(lanes: LaneDefinition[]): LaneDefinition[] {
+  renumberHierarchical(lanes, "L", undefined, undefined);
+  return lanes;
+}
+
+/**
+ * Renumber all stages hierarchically: S1, S1.1, S1.2, S2, ...
+ * Mutates the items in-place and returns the same array.
+ */
+export function renumberStages(stages: StageDefinition[]): StageDefinition[] {
+  renumberHierarchical(stages, "S", undefined, undefined);
+  return stages;
 }

@@ -61,9 +61,9 @@ function matchItemsRecursively<T extends { id: string; label: string; parentId?:
   }
 
   for (const incoming of incomingAtLevel) {
-    // Try to match by label (exact, case-sensitive)
+    // Try to match by label (case-insensitive)
     const match = existingAtLevel.find(
-      (e) => e.label.trim() === incoming.label.trim()
+      (e) => e.label.trim().toLowerCase() === incoming.label.trim().toLowerCase()
     )
 
     if (match) {

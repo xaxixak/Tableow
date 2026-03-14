@@ -26,6 +26,8 @@ import {
   getNextCategoryNumber,
   getNextNodeNumber,
   getNextEdgeNumber,
+  renumberLanes,
+  renumberStages,
 } from '@/utils/numbering.ts'
 import { mergeWorkflow, buildClipboardWorkflow } from '@/utils/mergeWorkflow.ts'
 import { generateAIContext } from '@/utils/aiContext.ts'
@@ -247,6 +249,13 @@ function pushHistory(state: {
     newHistory.shift()
   }
   return { history: newHistory, historyIndex: newHistory.length - 1 }
+}
+
+/** Renumber lanes and stages in-place after mutations */
+function renumberGrid(gc: GridConfig): GridConfig {
+  renumberLanes(gc.lanes)
+  renumberStages(gc.stages)
+  return gc
 }
 
 
@@ -1104,11 +1113,11 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
             ? { ...node, data: { ...node.data, laneId: newLane.id } }
             : node,
         )
-        const newGridConfig = {
+        const newGridConfig = renumberGrid({
           ...state.gridConfig,
           lanes: [...state.gridConfig.lanes, newLane],
           placements: newPlacements,
-        }
+        })
         set({
           nodes: newNodes,
           gridConfig: newGridConfig,
@@ -1118,10 +1127,10 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       }
     }
 
-    const newGridConfig = {
+    const newGridConfig = renumberGrid({
       ...state.gridConfig,
       lanes: [...state.gridConfig.lanes, newLane],
-    }
+    })
     set({
       gridConfig: newGridConfig,
       ...pushHistory({ ...state, gridConfig: newGridConfig }),
@@ -1137,10 +1146,10 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       label: `Lane ${existingCount + i + 1}`,
       order: maxOrder + i + 1,
     }))
-    const newGridConfig = {
+    const newGridConfig = renumberGrid({
       ...state.gridConfig,
       lanes: [...state.gridConfig.lanes, ...newLanes],
-    }
+    })
     set({
       gridConfig: newGridConfig,
       ...pushHistory({ ...state, gridConfig: newGridConfig }),
@@ -1161,11 +1170,11 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
         }
       }
     }
-    const newGridConfig = {
+    const newGridConfig = renumberGrid({
       ...state.gridConfig,
       lanes: state.gridConfig.lanes.filter((l) => !idsToRemove.has(l.id)),
       placements: state.gridConfig.placements.filter((p) => !idsToRemove.has(p.laneId)),
-    }
+    })
     set({
       gridConfig: newGridConfig,
       ...pushHistory({ ...state, gridConfig: newGridConfig }),
@@ -1174,12 +1183,12 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
 
   updateLane: (id, updates) => {
     const state = get()
-    const newGridConfig = {
+    const newGridConfig = renumberGrid({
       ...state.gridConfig,
       lanes: state.gridConfig.lanes.map((l) =>
         l.id === id ? { ...l, ...updates } : l,
       ),
-    }
+    })
     set({
       gridConfig: newGridConfig,
       ...pushHistory({ ...state, gridConfig: newGridConfig }),
@@ -1203,11 +1212,11 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
             ? { ...node, data: { ...node.data, stageId: newStage.id } }
             : node,
         )
-        const newGridConfig = {
+        const newGridConfig = renumberGrid({
           ...state.gridConfig,
           stages: [...state.gridConfig.stages, newStage],
           placements: newPlacements,
-        }
+        })
         set({
           nodes: newNodes,
           gridConfig: newGridConfig,
@@ -1217,10 +1226,10 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       }
     }
 
-    const newGridConfig = {
+    const newGridConfig = renumberGrid({
       ...state.gridConfig,
       stages: [...state.gridConfig.stages, newStage],
-    }
+    })
     set({
       gridConfig: newGridConfig,
       ...pushHistory({ ...state, gridConfig: newGridConfig }),
@@ -1236,10 +1245,10 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       label: `Stage ${existingCount + i + 1}`,
       order: maxOrder + i + 1,
     }))
-    const newGridConfig = {
+    const newGridConfig = renumberGrid({
       ...state.gridConfig,
       stages: [...state.gridConfig.stages, ...newStages],
-    }
+    })
     set({
       gridConfig: newGridConfig,
       ...pushHistory({ ...state, gridConfig: newGridConfig }),
@@ -1258,7 +1267,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       return l
     })
     newLane.order = insertOrder
-    const newGridConfig = { ...state.gridConfig, lanes: [...shiftedLanes, newLane] }
+    const newGridConfig = renumberGrid({ ...state.gridConfig, lanes: [...shiftedLanes, newLane] })
     set({ gridConfig: newGridConfig, ...pushHistory({ ...state, gridConfig: newGridConfig }) })
   },
 
@@ -1274,7 +1283,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       return s
     })
     newStage.order = insertOrder
-    const newGridConfig = { ...state.gridConfig, stages: [...shiftedStages, newStage] }
+    const newGridConfig = renumberGrid({ ...state.gridConfig, stages: [...shiftedStages, newStage] })
     set({ gridConfig: newGridConfig, ...pushHistory({ ...state, gridConfig: newGridConfig }) })
   },
 
@@ -1292,11 +1301,11 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
         }
       }
     }
-    const newGridConfig = {
+    const newGridConfig = renumberGrid({
       ...state.gridConfig,
       stages: state.gridConfig.stages.filter((s) => !idsToRemove.has(s.id)),
       placements: state.gridConfig.placements.filter((p) => !idsToRemove.has(p.stageId)),
-    }
+    })
     set({
       gridConfig: newGridConfig,
       ...pushHistory({ ...state, gridConfig: newGridConfig }),
@@ -1305,12 +1314,12 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
 
   updateStage: (id, updates) => {
     const state = get()
-    const newGridConfig = {
+    const newGridConfig = renumberGrid({
       ...state.gridConfig,
       stages: state.gridConfig.stages.map((s) =>
         s.id === id ? { ...s, ...updates } : s,
       ),
-    }
+    })
     set({
       gridConfig: newGridConfig,
       ...pushHistory({ ...state, gridConfig: newGridConfig }),
@@ -1342,27 +1351,27 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       // Reparent: make source a child of target
       const childrenOfTarget = state.gridConfig.lanes.filter((l) => l.parentId === targetId)
       const maxOrder = childrenOfTarget.reduce((max, l) => Math.max(max, l.order), 0)
-      const newGridConfig = {
+      const newGridConfig = renumberGrid({
         ...state.gridConfig,
         lanes: state.gridConfig.lanes.map((l) => {
           if (l.id === sourceId) return { ...l, parentId: targetId, order: maxOrder + 1 }
           return l
         }),
-      }
+      })
       set({
         gridConfig: newGridConfig,
         ...pushHistory({ ...state, gridConfig: newGridConfig }),
       })
     } else if (sourceLane.parentId === targetLane.parentId) {
       // Same parent: simple swap
-      const newGridConfig = {
+      const newGridConfig = renumberGrid({
         ...state.gridConfig,
         lanes: state.gridConfig.lanes.map((l) => {
           if (l.id === sourceId) return { ...l, order: targetLane.order }
           if (l.id === targetId) return { ...l, order: sourceLane.order }
           return l
         }),
-      }
+      })
       set({
         gridConfig: newGridConfig,
         ...pushHistory({ ...state, gridConfig: newGridConfig }),
@@ -1372,7 +1381,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       const newParentId = targetLane.parentId
       const insertOrder = effectivePosition === 'before' ? targetLane.order : targetLane.order + 1
       // Shift siblings at or after insertOrder to make room
-      const newGridConfig = {
+      const newGridConfig = renumberGrid({
         ...state.gridConfig,
         lanes: state.gridConfig.lanes.map((l) => {
           if (l.id === sourceId) {
@@ -1383,7 +1392,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
           }
           return l
         }),
-      }
+      })
       set({
         gridConfig: newGridConfig,
         ...pushHistory({ ...state, gridConfig: newGridConfig }),
@@ -1400,14 +1409,14 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     // Only swap siblings (same parent)
     if (sourceStage.parentId !== targetStage.parentId) return
 
-    const newGridConfig = {
+    const newGridConfig = renumberGrid({
       ...state.gridConfig,
       stages: state.gridConfig.stages.map((s) => {
         if (s.id === sourceId) return { ...s, order: targetStage.order }
         if (s.id === targetId) return { ...s, order: sourceStage.order }
         return s
       }),
-    }
+    })
     set({
       gridConfig: newGridConfig,
       ...pushHistory({ ...state, gridConfig: newGridConfig }),
@@ -1864,18 +1873,19 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       }
     })
 
+    const numberedGridConfig = renumberGrid(gridConfig)
     set({
       nodes: workflow.nodes,
       edges: processedEdges,
       metadata: workflow.metadata,
-      gridConfig,
+      gridConfig: numberedGridConfig,
       customNodeTypes: allCustomTypes,
       customCategories: customCats,
       registryVersion: get().registryVersion + 1,
       selectedNodeId: null,
       selectedEdgeId: null,
       expandedEdgeIds: new Set<string>(),
-      history: [{ nodes: workflow.nodes, edges: processedEdges, gridConfig }],
+      history: [{ nodes: workflow.nodes, edges: processedEdges, gridConfig: numberedGridConfig }],
       historyIndex: 0,
     })
   },
@@ -2045,12 +2055,12 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
 
     const newNodes = [...state.nodes, ...finalNodes]
     const newEdges = [...state.edges, ...result.newEdges]
-    const newGridConfig: GridConfig = {
+    const newGridConfig = renumberGrid({
       lanes: [...state.gridConfig.lanes, ...result.newLanes],
       stages: [...state.gridConfig.stages, ...result.newStages],
       placements: [...state.gridConfig.placements, ...finalPlacements],
       laneColumnWidth: state.gridConfig.laneColumnWidth,
-    }
+    })
     const newCategories = [...state.customCategories, ...result.newCategories]
     const newNodeTypes = [...state.customNodeTypes, ...result.newNodeTypes]
 

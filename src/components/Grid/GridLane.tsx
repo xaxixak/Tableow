@@ -336,6 +336,7 @@ function GridLane({
               }}
               title="Double-click to rename"
             >
+              {lane.number && <span className="text-[10px] font-normal text-slate-400 dark:text-slate-500 mr-1">{lane.number}</span>}
               {lane.label}
             </span>
           )}

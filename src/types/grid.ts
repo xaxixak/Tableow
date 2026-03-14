@@ -2,6 +2,7 @@
 export interface LaneDefinition {
   id: string
   label: string
+  number?: string
   color?: string
   bold?: boolean
   textColor?: string
@@ -14,6 +15,7 @@ export interface LaneDefinition {
 export interface StageDefinition {
   id: string
   label: string
+  number?: string
   parentId?: string
   order: number
   /** Column width in pixels (default: 150) */

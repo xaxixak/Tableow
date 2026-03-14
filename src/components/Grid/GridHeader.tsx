@@ -40,12 +40,14 @@ function InlineEdit({
   bold,
   textColor,
   fontSize,
+  numberPrefix,
 }: {
   value: string;
   onCommit: (newValue: string) => void;
   bold?: boolean;
   textColor?: string;
   fontSize?: number;
+  numberPrefix?: string;
 }) {
   const [editing, setEditing] = useState(false);
   const [editValue, setEditValue] = useState(value);
@@ -108,6 +110,7 @@ function InlineEdit({
       }}
       title="Double-click to rename"
     >
+      {numberPrefix && <span className="text-[10px] font-normal text-slate-400 dark:text-slate-500 mr-1">{numberPrefix}</span>}
       {value}
     </span>
   );
@@ -430,7 +433,7 @@ function GridHeader({ stages }: GridHeaderProps) {
               >
                 <GripHorizontal className="w-3 h-3 text-slate-300 shrink-0 opacity-0 group-hover/parent:opacity-100 transition-opacity" />
                 {children ? (
-                  stage.label
+                  <>{stage.number && <span className="text-[10px] font-normal text-slate-400 dark:text-slate-500 mr-1">{stage.number}</span>}{stage.label}</>
                 ) : (
                   <InlineEdit
                     value={stage.label}
@@ -438,6 +441,7 @@ function GridHeader({ stages }: GridHeaderProps) {
                     bold={stage.bold}
                     textColor={stage.textColor}
                     fontSize={stage.fontSize}
+                    numberPrefix={stage.number}
                   />
                 )}
               </div>
@@ -506,6 +510,7 @@ function GridHeader({ stages }: GridHeaderProps) {
                     bold={stage.bold}
                     textColor={stage.textColor}
                     fontSize={stage.fontSize}
+                    numberPrefix={stage.number}
                   />
                 </>
               )}
