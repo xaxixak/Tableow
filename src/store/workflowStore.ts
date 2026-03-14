@@ -111,7 +111,7 @@ export interface WorkflowState {
   insertLane: (lane: Omit<LaneDefinition, 'id'>, referenceId: string, position: 'before' | 'after') => void
   insertStage: (stage: Omit<StageDefinition, 'id'>, referenceId: string, position: 'before' | 'after') => void
   reorderLanes: (sourceId: string, targetId: string, position?: 'before' | 'after' | 'child') => void
-  reorderStages: (sourceId: string, targetId: string) => void
+  reorderStages: (sourceId: string, targetId: string, position?: 'before' | 'after' | 'child') => void
   setLaneColumnWidth: (width: number) => void
   placeNode: (nodeId: string, laneId: string, stageId: string) => void
   unplaceNode: (nodeId: string) => void
@@ -1400,27 +1400,112 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     }
   },
 
-  reorderStages: (sourceId, targetId) => {
+  reorderStages: (sourceId, targetId, position?: 'before' | 'after' | 'child') => {
     if (sourceId === targetId) return
     const state = get()
     const sourceStage = state.gridConfig.stages.find((s) => s.id === sourceId)
     const targetStage = state.gridConfig.stages.find((s) => s.id === targetId)
     if (!sourceStage || !targetStage) return
-    // Only swap siblings (same parent)
-    if (sourceStage.parentId !== targetStage.parentId) return
 
-    const newGridConfig = renumberGrid({
-      ...state.gridConfig,
-      stages: state.gridConfig.stages.map((s) => {
-        if (s.id === sourceId) return { ...s, order: targetStage.order }
-        if (s.id === targetId) return { ...s, order: sourceStage.order }
-        return s
-      }),
-    })
-    set({
-      gridConfig: newGridConfig,
-      ...pushHistory({ ...state, gridConfig: newGridConfig }),
-    })
+    // Prevent circular reference: can't drop a stage onto its own descendant
+    const isDescendant = (parentId: string, checkId: string): boolean => {
+      for (const s of state.gridConfig.stages) {
+        if (s.parentId === parentId) {
+          if (s.id === checkId) return true
+          if (isDescendant(s.id, checkId)) return true
+        }
+      }
+      return false
+    }
+    if (isDescendant(sourceId, targetId)) return
+
+    const effectivePosition = position ?? 'after'
+
+    if (effectivePosition === 'child') {
+      // Reparent: make source a child of target
+      const childrenOfTarget = state.gridConfig.stages.filter((s) => s.parentId === targetId)
+      const targetPlacements = state.gridConfig.placements.filter((p) => p.stageId === targetId)
+
+      let newStages = [...state.gridConfig.stages]
+      let newPlacements = [...state.gridConfig.placements]
+      let newNodes = state.nodes
+
+      if (childrenOfTarget.length === 0 && targetPlacements.length > 0) {
+        // Target was a leaf with nodes — create a child to inherit its placements
+        const inheritedChildId = crypto.randomUUID()
+        newStages.push({
+          id: inheritedChildId,
+          label: targetStage.label,
+          parentId: targetId,
+          order: 1,
+        })
+        // Move placements from target to the new child
+        newPlacements = newPlacements.map((p) =>
+          p.stageId === targetId ? { ...p, stageId: inheritedChildId } : p
+        )
+        // Update node data for consistency
+        const movedNodeIds = new Set(targetPlacements.map((p) => p.nodeId))
+        newNodes = newNodes.map((n) =>
+          movedNodeIds.has(n.id) ? { ...n, data: { ...n.data, stageId: inheritedChildId } } : n
+        )
+        // Source becomes second child
+        newStages = newStages.map((s) => {
+          if (s.id === sourceId) return { ...s, parentId: targetId, order: 2 }
+          return s
+        })
+      } else {
+        const maxOrder = childrenOfTarget.reduce((max, s) => Math.max(max, s.order), 0)
+        newStages = newStages.map((s) => {
+          if (s.id === sourceId) return { ...s, parentId: targetId, order: maxOrder + 1 }
+          return s
+        })
+      }
+
+      const newGridConfig = renumberGrid({
+        ...state.gridConfig,
+        stages: newStages,
+        placements: newPlacements,
+      })
+      set({
+        nodes: newNodes,
+        gridConfig: newGridConfig,
+        ...pushHistory({ ...state, gridConfig: newGridConfig, nodes: newNodes }),
+      })
+    } else if (sourceStage.parentId === targetStage.parentId) {
+      // Same parent: simple swap
+      const newGridConfig = renumberGrid({
+        ...state.gridConfig,
+        stages: state.gridConfig.stages.map((s) => {
+          if (s.id === sourceId) return { ...s, order: targetStage.order }
+          if (s.id === targetId) return { ...s, order: sourceStage.order }
+          return s
+        }),
+      })
+      set({
+        gridConfig: newGridConfig,
+        ...pushHistory({ ...state, gridConfig: newGridConfig }),
+      })
+    } else {
+      // Cross-parent move: reparent source to target's parent, insert before/after target
+      const newParentId = targetStage.parentId
+      const insertOrder = effectivePosition === 'before' ? targetStage.order : targetStage.order + 1
+      const newGridConfig = renumberGrid({
+        ...state.gridConfig,
+        stages: state.gridConfig.stages.map((s) => {
+          if (s.id === sourceId) {
+            return { ...s, parentId: newParentId, order: insertOrder }
+          }
+          if (s.parentId === newParentId && s.id !== sourceId && s.order >= insertOrder) {
+            return { ...s, order: s.order + 1 }
+          }
+          return s
+        }),
+      })
+      set({
+        gridConfig: newGridConfig,
+        ...pushHistory({ ...state, gridConfig: newGridConfig }),
+      })
+    }
   },
 
   setLaneColumnWidth: (width) => {

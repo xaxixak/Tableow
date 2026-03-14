@@ -42,12 +42,22 @@ export default function GridView() {
 
   const { lanes, stages, placements } = gridConfig;
 
-  // Compute leaf columns (for CSS grid template)
+  // Collapsed stage IDs (for header collapse/expand)
+  const [collapsedStageIds, setCollapsedStageIds] = useState<Set<string>>(new Set());
+  const toggleStageCollapse = useCallback((stageId: string) => {
+    setCollapsedStageIds(prev => {
+      const next = new Set(prev);
+      if (next.has(stageId)) next.delete(stageId);
+      else next.add(stageId);
+      return next;
+    });
+  }, []);
+
+  // Compute leaf columns recursively (N-level depth, respecting collapse)
   const leafStages = useMemo(() => {
     const sorted = [...stages].sort((a, b) => a.order - b.order);
     const topLevel = sorted.filter((s) => !s.parentId);
     const childrenByParent = new Map<string, StageDefinition[]>();
-
     for (const stage of sorted) {
       if (stage.parentId) {
         const list = childrenByParent.get(stage.parentId) ?? [];
@@ -55,18 +65,20 @@ export default function GridView() {
         childrenByParent.set(stage.parentId, list);
       }
     }
-
-    const leaves: StageDefinition[] = [];
-    for (const stage of topLevel) {
-      const children = childrenByParent.get(stage.id);
-      if (children && children.length > 0) {
-        leaves.push(...children);
-      } else {
-        leaves.push(stage);
+    const collectLeaves = (list: StageDefinition[]): StageDefinition[] => {
+      const leaves: StageDefinition[] = [];
+      for (const stage of list) {
+        const children = childrenByParent.get(stage.id);
+        if (!children || children.length === 0 || collapsedStageIds.has(stage.id)) {
+          leaves.push(stage);
+        } else {
+          leaves.push(...collectLeaves(children));
+        }
       }
-    }
-    return leaves;
-  }, [stages]);
+      return leaves;
+    };
+    return collectLeaves(topLevel);
+  }, [stages, collapsedStageIds]);
 
   // Top-level lanes
   const topLevelLanes = useMemo(
@@ -420,7 +432,7 @@ export default function GridView() {
               aria-label="Workflow grid view"
             >
               {/* Header rows */}
-              <GridHeader stages={stages} />
+              <GridHeader stages={stages} collapsedStageIds={collapsedStageIds} onToggleCollapse={toggleStageCollapse} />
 
               {/* Lane rows */}
               {topLevelLanes.map((lane) => (

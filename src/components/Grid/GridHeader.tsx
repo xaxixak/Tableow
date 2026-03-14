@@ -1,5 +1,5 @@
 import { memo, useState, useCallback, useMemo, useRef, useEffect, type DragEvent } from "react";
-import { Plus, Trash2, Edit3, GripHorizontal, ArrowLeft, ArrowRight, Bold, Palette, Type } from "lucide-react";
+import { Plus, Trash2, Edit3, GripHorizontal, ArrowLeft, ArrowRight, Bold, Palette, Type, ChevronRight, ChevronDown } from "lucide-react";
 import { useWorkflowStore } from "../../store/workflowStore.ts";
 import { cn } from "../../lib/utils.ts";
 import type { StageDefinition } from "../../types/grid.ts";
@@ -32,6 +32,8 @@ interface ContextMenuState {
 
 interface GridHeaderProps {
   stages: StageDefinition[];
+  collapsedStageIds: Set<string>;
+  onToggleCollapse: (stageId: string) => void;
 }
 
 function InlineEdit({
@@ -116,7 +118,7 @@ function InlineEdit({
   );
 }
 
-function GridHeader({ stages }: GridHeaderProps) {
+function GridHeader({ stages, collapsedStageIds, onToggleCollapse }: GridHeaderProps) {
   const updateStage = useWorkflowStore((s) => s.updateStage);
   const removeStage = useWorkflowStore((s) => s.removeStage);
   const addStage = useWorkflowStore((s) => s.addStage);
@@ -127,57 +129,103 @@ function GridHeader({ stages }: GridHeaderProps) {
 
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [dragOverStageId, setDragOverStageId] = useState<string | null>(null);
+  const [dragOverPosition, setDragOverPosition] = useState<'before' | 'after' | 'child' | null>(null);
   const [resizing, setResizing] = useState<{ stageId: string; startX: number; startWidth: number } | null>(null);
   const [resizingLaneCol, setResizingLaneCol] = useState<{ startX: number; startWidth: number } | null>(null);
 
-  // Build hierarchical stage structure
-  const { parentStages, childrenByParent, topLevelStages, topLevelNoChildIds } = useMemo(() => {
-    const parents: StageDefinition[] = [];
-    const children = new Map<string, StageDefinition[]>();
-    const topLevel: StageDefinition[] = [];
+  // Build N-level stage tree and compute header cells
+  interface HeaderCell {
+    stage: StageDefinition;
+    rowStart: number;
+    rowSpan: number;
+    colStart: number;
+    colSpan: number;
+    isLeaf: boolean;
+    hasDataChildren: boolean;
+    isCollapsed: boolean;
+    isEmpty: boolean;
+  }
 
+  const { cells, headerRowCount } = useMemo(() => {
     const sorted = [...stages].sort((a, b) => a.order - b.order);
-
+    const childMap = new Map<string, StageDefinition[]>();
     for (const stage of sorted) {
       if (stage.parentId) {
-        const list = children.get(stage.parentId) ?? [];
+        const list = childMap.get(stage.parentId) ?? [];
         list.push(stage);
-        children.set(stage.parentId, list);
-      } else {
-        topLevel.push(stage);
+        childMap.set(stage.parentId, list);
       }
     }
+    const topLevel = sorted.filter((s) => !s.parentId);
 
-    // Parents are top-level stages that have children
-    for (const stage of topLevel) {
-      if (children.has(stage.id)) {
-        parents.push(stage);
-      }
+    interface TreeNode {
+      stage: StageDefinition;
+      children: TreeNode[];
+      depth: number;
+      leafCount: number;
+      colStart: number;
     }
 
-    // Top-level stages that have NO children (rendered in parent row, empty in leaf row)
-    const topLevelNoChildIds = new Set(
-      topLevel.filter((s) => !children.has(s.id)).map((s) => s.id)
-    );
-
-    return { parentStages: parents, childrenByParent: children, topLevelStages: topLevel, topLevelNoChildIds };
-  }, [stages]);
-
-  // Flat list of leaf columns (for grid alignment)
-  const leafColumns = useMemo(() => {
-    const leaves: StageDefinition[] = [];
-    for (const stage of topLevelStages) {
-      const children = childrenByParent.get(stage.id);
-      if (children && children.length > 0) {
-        leaves.push(...children);
-      } else {
-        leaves.push(stage);
+    let colCounter = 0;
+    function buildNode(stage: StageDefinition, depth: number): TreeNode {
+      const children = childMap.get(stage.id);
+      const isCollapsed = collapsedStageIds.has(stage.id);
+      if (!children || children.length === 0 || isCollapsed) {
+        colCounter++;
+        return { stage, children: [], depth, leafCount: 1, colStart: colCounter };
       }
+      const childNodes = children.map(c => buildNode(c, depth + 1));
+      const leafCount = childNodes.reduce((sum, n) => sum + n.leafCount, 0);
+      return { stage, children: childNodes, depth, leafCount, colStart: childNodes[0].colStart };
     }
-    return leaves;
-  }, [topLevelStages, childrenByParent]);
 
-  const hasHierarchy = parentStages.length > 0;
+    const roots = topLevel.map(s => buildNode(s, 0));
+
+    function getMaxDepth(nodes: TreeNode[]): number {
+      if (nodes.length === 0) return 0;
+      return Math.max(...nodes.map(n =>
+        n.children.length === 0 ? n.depth : getMaxDepth(n.children)
+      ));
+    }
+    const maxDepth = roots.length > 0 ? getMaxDepth(roots) : 0;
+    const rowCount = maxDepth + 1;
+
+    const cellList: HeaderCell[] = [];
+    function visit(node: TreeNode) {
+      const hasDataChildren = (childMap.get(node.stage.id)?.length ?? 0) > 0;
+      const isCollapsed = collapsedStageIds.has(node.stage.id);
+      const isLeaf = node.children.length === 0;
+      cellList.push({
+        stage: node.stage,
+        rowStart: node.depth + 1,
+        rowSpan: 1,
+        colStart: node.colStart + 1, // +1 for lane label column
+        colSpan: node.leafCount,
+        isLeaf,
+        hasDataChildren,
+        isCollapsed,
+        isEmpty: false,
+      });
+      // Leaf stages not at the deepest level: add blank placeholder cell(s) below
+      if (isLeaf && node.depth < rowCount - 1) {
+        cellList.push({
+          stage: node.stage,
+          rowStart: node.depth + 2,
+          rowSpan: rowCount - node.depth - 1,
+          colStart: node.colStart + 1,
+          colSpan: 1,
+          isLeaf: true,
+          hasDataChildren: false,
+          isCollapsed: false,
+          isEmpty: true,
+        });
+      }
+      for (const child of node.children) visit(child);
+    }
+    for (const root of roots) visit(root);
+
+    return { cells: cellList, headerRowCount: rowCount };
+  }, [stages, collapsedStageIds]);
 
   const handleContextMenu = useCallback(
     (e: React.MouseEvent, stageId: string) => {
@@ -284,35 +332,53 @@ function GridHeader({ stages }: GridHeaderProps) {
     []
   );
 
+  const getStageDragPosition = useCallback(
+    (e: DragEvent<HTMLDivElement>): 'before' | 'after' | 'child' => {
+      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const width = rect.width;
+      // Left 25% = before, right 25% = after, center 50% = make child
+      if (x < width * 0.25) return 'before';
+      if (x > width * 0.75) return 'after';
+      return 'child';
+    },
+    []
+  );
+
   const handleStageDragOver = useCallback(
     (e: DragEvent<HTMLDivElement>, stageId: string) => {
       if (e.dataTransfer.types.includes("application/grid-stage-reorder")) {
         e.preventDefault();
         e.dataTransfer.dropEffect = "move";
         setDragOverStageId(stageId);
+        setDragOverPosition(getStageDragPosition(e));
       }
     },
-    []
+    [getStageDragPosition]
   );
 
   const handleStageDragLeave = useCallback(() => {
     setDragOverStageId(null);
+    setDragOverPosition(null);
   }, []);
 
   const handleStageDrop = useCallback(
     (e: DragEvent<HTMLDivElement>, targetId: string) => {
       e.preventDefault();
+      const position = getStageDragPosition(e);
       setDragOverStageId(null);
+      setDragOverPosition(null);
       const sourceId = e.dataTransfer.getData("application/grid-stage-reorder");
       if (sourceId && sourceId !== targetId) {
-        reorderStages(sourceId, targetId);
+        reorderStages(sourceId, targetId, position);
       }
     },
-    [reorderStages]
+    [reorderStages, getStageDragPosition]
   );
 
   const handleStageDragEnd = useCallback(() => {
     setDragOverStageId(null);
+    setDragOverPosition(null);
   }, []);
 
   // Column resize handlers
@@ -381,152 +447,131 @@ function GridHeader({ stages }: GridHeaderProps) {
 
   return (
     <>
-      {/* Parent header row (if hierarchical) */}
-      {hasHierarchy && (
-        <div className="contents" role="row">
-          {/* Empty cell for lane label column */}
-          <div className="sticky left-0 z-20 bg-slate-100 dark:bg-zinc-950 border-r border-b border-slate-300 dark:border-zinc-800">
-            <div
-              onMouseDown={handleLaneColResizeStart}
-              className={cn(
-                "absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize z-10",
-                "hover:bg-blue-400/50",
-                resizingLaneCol && "bg-blue-500/60"
-              )}
-            />
-          </div>
-
-          {topLevelStages.map((stage) => {
-            const children = childrenByParent.get(stage.id);
-            const span = children ? children.length : 1;
-
-            return (
-              <div
-                key={stage.id}
-                draggable
-                onDragStart={(e) => handleStageDragStart(e, stage.id)}
-                onDragOver={(e) => handleStageDragOver(e, stage.id)}
-                onDragLeave={handleStageDragLeave}
-                onDrop={(e) => handleStageDrop(e, stage.id)}
-                onDragEnd={handleStageDragEnd}
-                className={cn(
-                  "flex items-center justify-center gap-1 px-2 py-1.5 group/parent",
-                  "bg-slate-100 dark:bg-zinc-950 border-r border-b border-slate-300 dark:border-zinc-800",
-                  "uppercase tracking-wider",
-                  !stage.fontSize && "text-xs",
-                  !stage.textColor && "text-slate-500 dark:text-slate-400",
-                  stage.bold ? "font-bold" : "font-semibold",
-                  "cursor-grab active:cursor-grabbing",
-                  dragOverStageId === stage.id && "border-l-2 border-l-blue-500 bg-blue-50 dark:bg-blue-950"
-                )}
-                style={{
-                  gridColumn: `span ${span}`,
-                  color: stage.textColor || undefined,
-                  fontSize: stage.fontSize ? `${stage.fontSize}px` : undefined,
-                  ...(stage.color ? {
-                    borderBottomWidth: "3px",
-                    borderBottomColor: stage.color,
-                    backgroundColor: darkMode ? stage.color + "20" : stage.color + "15",
-                  } : {}),
-                }}
-                onContextMenu={(e) => handleContextMenu(e, stage.id)}
-              >
-                <GripHorizontal className="w-3 h-3 text-slate-300 shrink-0 opacity-0 group-hover/parent:opacity-100 transition-opacity" />
-                {children ? (
-                  <>{stage.number && <span className="text-[10px] font-normal text-slate-400 dark:text-slate-500 mr-1">{stage.number}</span>}{stage.label}</>
-                ) : (
-                  <InlineEdit
-                    value={stage.label}
-                    onCommit={(newLabel) => updateStage(stage.id, { label: newLabel })}
-                    bold={stage.bold}
-                    textColor={stage.textColor}
-                    fontSize={stage.fontSize}
-                    numberPrefix={stage.number}
-                  />
-                )}
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {/* Leaf column header row */}
-      <div className="contents" role="row">
-        {/* Lane label header */}
+      {/* Lane label header cell — spans all header rows */}
+      <div
+        className={cn(
+          "sticky left-0 z-20 flex items-center px-3 py-2",
+          "bg-slate-100 dark:bg-zinc-950 border-r border-b border-slate-300 dark:border-zinc-800",
+          "text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider"
+        )}
+        style={{
+          gridRow: headerRowCount > 1 ? `1 / span ${headerRowCount}` : undefined,
+          gridColumn: '1',
+        }}
+      >
+        Lane
         <div
+          onMouseDown={handleLaneColResizeStart}
           className={cn(
-            "sticky left-0 z-20 flex items-center px-3 py-2",
-            "bg-slate-100 dark:bg-zinc-950 border-r border-b border-slate-300 dark:border-zinc-800",
-            "text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider"
+            "absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize z-10",
+            "hover:bg-blue-400/50",
+            resizingLaneCol && "bg-blue-500/60"
           )}
-        >
-          Lane
-          {/* Resize handle for lane column */}
-          <div
-            onMouseDown={handleLaneColResizeStart}
-            className={cn(
-              "absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize z-10",
-              "hover:bg-blue-400/50",
-              resizingLaneCol && "bg-blue-500/60"
-            )}
-          />
-        </div>
+        />
+      </div>
 
-        {leafColumns.map((stage) => {
-          // Top-level stages without children: label is already in parent row, show empty cell here
-          const isParentRowStage = topLevelNoChildIds.has(stage.id);
-
+      {/* Stage header cells (N-level) */}
+      {cells.map((cell) => {
+        // Empty placeholder cell below a leaf stage (blank row)
+        if (cell.isEmpty) {
           return (
             <div
-              key={stage.id}
-              draggable={!resizing && !isParentRowStage}
-              onDragStart={isParentRowStage ? undefined : (e) => handleStageDragStart(e, stage.id)}
-              onDragOver={(e) => handleStageDragOver(e, stage.id)}
-              onDragLeave={handleStageDragLeave}
-              onDrop={(e) => handleStageDrop(e, stage.id)}
-              onDragEnd={handleStageDragEnd}
-              className={cn(
-                "relative flex items-center justify-center gap-1 px-2 py-2 group/stage",
-                "bg-slate-100 dark:bg-zinc-950 border-r border-b border-slate-300 dark:border-zinc-800",
-                "min-w-[80px]",
-                !isParentRowStage && "cursor-grab active:cursor-grabbing",
-                dragOverStageId === stage.id && "border-l-2 border-l-blue-500 bg-blue-50 dark:bg-blue-950"
-              )}
+              key={`${cell.stage.id}-empty-${cell.rowStart}`}
+              className="relative bg-slate-100 dark:bg-zinc-950 border-r border-b border-slate-300 dark:border-zinc-800"
               style={{
-                ...(stage.color && !isParentRowStage ? {
-                  borderBottomWidth: "3px",
-                  borderBottomColor: stage.color,
-                  backgroundColor: darkMode ? stage.color + "20" : stage.color + "15",
-                } : {}),
+                gridRow: cell.rowSpan > 1 ? `${cell.rowStart} / span ${cell.rowSpan}` : `${cell.rowStart}`,
+                gridColumn: `${cell.colStart}`,
               }}
-              onContextMenu={isParentRowStage ? undefined : (e) => handleContextMenu(e, stage.id)}
             >
-              {!isParentRowStage && (
-                <>
-                  <GripHorizontal className="w-3 h-3 text-slate-300 shrink-0 opacity-0 group-hover/stage:opacity-100 transition-opacity" />
-                  <InlineEdit
-                    value={stage.label}
-                    onCommit={(newLabel) => updateStage(stage.id, { label: newLabel })}
-                    bold={stage.bold}
-                    textColor={stage.textColor}
-                    fontSize={stage.fontSize}
-                    numberPrefix={stage.number}
-                  />
-                </>
-              )}
-              {/* Resize handle */}
               <div
-                onMouseDown={(e) => handleResizeStart(e, stage.id, stage.width ?? 150)}
+                onMouseDown={(e) => handleResizeStart(e, cell.stage.id, cell.stage.width ?? 150)}
                 className={cn(
                   "absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize z-10",
                   "hover:bg-blue-400/50",
-                  resizing?.stageId === stage.id && "bg-blue-500/60"
+                  resizing?.stageId === cell.stage.id && "bg-blue-500/60"
                 )}
               />
             </div>
           );
-        })}
-      </div>
+        }
+        return (
+          <div
+            key={`${cell.stage.id}-${cell.rowStart}`}
+            draggable={!resizing}
+            onDragStart={(e) => handleStageDragStart(e, cell.stage.id)}
+            onDragOver={(e) => handleStageDragOver(e, cell.stage.id)}
+            onDragLeave={handleStageDragLeave}
+            onDrop={(e) => handleStageDrop(e, cell.stage.id)}
+            onDragEnd={handleStageDragEnd}
+            className={cn(
+              "relative flex items-center justify-center gap-1 px-2 group/stage",
+              cell.isLeaf ? "py-2" : "py-1.5",
+              "bg-slate-100 dark:bg-zinc-950 border-r border-b border-slate-300 dark:border-zinc-800",
+              "min-w-[80px]",
+              "cursor-grab active:cursor-grabbing",
+              !cell.isLeaf && "uppercase tracking-wider",
+              !cell.stage.fontSize && "text-xs",
+              !cell.stage.textColor && "text-slate-500 dark:text-slate-400",
+              cell.stage.bold ? "font-bold" : "font-semibold",
+              dragOverStageId === cell.stage.id && dragOverPosition === 'before' && "border-l-2 border-l-blue-500",
+              dragOverStageId === cell.stage.id && dragOverPosition === 'after' && "border-r-2 border-r-blue-500",
+              dragOverStageId === cell.stage.id && dragOverPosition === 'child' && "ring-2 ring-inset ring-green-500 bg-green-50 dark:bg-green-950",
+            )}
+            style={{
+              gridRow: cell.rowSpan > 1 ? `${cell.rowStart} / span ${cell.rowSpan}` : `${cell.rowStart}`,
+              gridColumn: cell.colSpan > 1 ? `${cell.colStart} / span ${cell.colSpan}` : `${cell.colStart}`,
+              color: cell.stage.textColor || undefined,
+              fontSize: cell.stage.fontSize ? `${cell.stage.fontSize}px` : undefined,
+              ...(cell.stage.color ? {
+                borderBottomWidth: "3px",
+                borderBottomColor: cell.stage.color,
+                backgroundColor: darkMode ? cell.stage.color + "20" : cell.stage.color + "15",
+              } : {}),
+            }}
+            onContextMenu={(e) => handleContextMenu(e, cell.stage.id)}
+          >
+            {cell.hasDataChildren && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onToggleCollapse(cell.stage.id); }}
+                className="shrink-0 p-0.5 rounded hover:bg-slate-200 dark:hover:bg-zinc-800 transition-colors"
+                title={cell.isCollapsed ? "Expand" : "Collapse"}
+              >
+                {cell.isCollapsed ? (
+                  <ChevronRight className="w-3 h-3 text-slate-400" />
+                ) : (
+                  <ChevronDown className="w-3 h-3 text-slate-400" />
+                )}
+              </button>
+            )}
+            <GripHorizontal className="w-3 h-3 text-slate-300 shrink-0 opacity-0 group-hover/stage:opacity-100 transition-opacity" />
+            {cell.isLeaf ? (
+              <InlineEdit
+                value={cell.stage.label}
+                onCommit={(newLabel) => updateStage(cell.stage.id, { label: newLabel })}
+                bold={cell.stage.bold}
+                textColor={cell.stage.textColor}
+                fontSize={cell.stage.fontSize}
+                numberPrefix={cell.stage.number}
+              />
+            ) : (
+              <>
+                {cell.stage.number && <span className="text-[10px] font-normal text-slate-400 dark:text-slate-500 mr-1">{cell.stage.number}</span>}
+                {cell.stage.label}
+              </>
+            )}
+            {cell.isLeaf && (
+              <div
+                onMouseDown={(e) => handleResizeStart(e, cell.stage.id, cell.stage.width ?? 150)}
+                className={cn(
+                  "absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize z-10",
+                  "hover:bg-blue-400/50",
+                  resizing?.stageId === cell.stage.id && "bg-blue-500/60"
+                )}
+              />
+            )}
+          </div>
+        );
+      })}
 
       {/* Context menu */}
       {contextMenu && (() => {
