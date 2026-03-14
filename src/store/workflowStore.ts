@@ -15,6 +15,7 @@ import type {
   Workflow,
   WorkflowMetadata,
   GridConfig,
+  GridPlacement,
   LaneDefinition,
   StageDefinition,
   NodeDefinition,
@@ -259,6 +260,76 @@ function renumberGrid(gc: GridConfig): GridConfig {
   return gc
 }
 
+/**
+ * Find non-leaf stages that have placements and create inherited child stages
+ * to hold those placements, preventing nodes from being hidden.
+ * Returns updated stages, placements, and nodes.
+ */
+function promoteParentPlacements(
+  stages: StageDefinition[],
+  placements: GridPlacement[],
+  nodes: WorkflowNode[],
+): { stages: StageDefinition[]; placements: GridPlacement[]; nodes: WorkflowNode[] } {
+  // Build set of parent stage IDs (stages that have children)
+  const parentStageIds = new Set<string>()
+  for (const s of stages) {
+    if (s.parentId) parentStageIds.add(s.parentId)
+  }
+
+  // Find parent stages that have placements on them
+  const parentsWithPlacements = new Set<string>()
+  for (const p of placements) {
+    if (parentStageIds.has(p.stageId)) {
+      parentsWithPlacements.add(p.stageId)
+    }
+  }
+
+  if (parentsWithPlacements.size === 0) {
+    return { stages, placements, nodes }
+  }
+
+  let newStages = [...stages]
+  let newPlacements = [...placements]
+  let newNodes = [...nodes]
+
+  for (const parentId of parentsWithPlacements) {
+    const parentStage = newStages.find((s) => s.id === parentId)
+    if (!parentStage) continue
+
+    // Find max order among existing children
+    const existingChildren = newStages.filter((s) => s.parentId === parentId)
+    const maxChildOrder = existingChildren.reduce((max, s) => Math.max(max, s.order), 0)
+
+    // Create inherited child with parent's label
+    const inheritedChildId = crypto.randomUUID()
+    const inheritedChild: StageDefinition = {
+      id: inheritedChildId,
+      label: parentStage.label,
+      parentId: parentId,
+      order: maxChildOrder + 1,
+    }
+    newStages.push(inheritedChild)
+
+    // Move placements from parent to inherited child
+    const movedNodeIds = new Set<string>()
+    newPlacements = newPlacements.map((p) => {
+      if (p.stageId === parentId) {
+        movedNodeIds.add(p.nodeId)
+        return { ...p, stageId: inheritedChildId }
+      }
+      return p
+    })
+
+    // Update node data stageId
+    newNodes = newNodes.map((n) =>
+      movedNodeIds.has(n.id)
+        ? { ...n, data: { ...n.data, stageId: inheritedChildId } }
+        : n,
+    )
+  }
+
+  return { stages: newStages, placements: newPlacements, nodes: newNodes }
+}
 
 /**
  * Returns leaf item IDs in display order (DFS walk of hierarchy).
@@ -1064,11 +1135,24 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       }
       return lane
     })
-    const newGridConfig = { ...state.gridConfig, lanes: coloredLanes }
+    // Fix non-leaf stages that have placements (nodes would be hidden)
+    const promoted = promoteParentPlacements(
+      state.gridConfig.stages,
+      state.gridConfig.placements,
+      state.nodes,
+    )
+
+    const newGridConfig = renumberGrid({
+      ...state.gridConfig,
+      lanes: coloredLanes,
+      stages: promoted.stages,
+      placements: promoted.placements,
+    })
 
     set({
       customCategories: renumberedCats,
       customNodeTypes: renumberedNodes,
+      nodes: promoted.nodes,
       gridConfig: newGridConfig,
       registryVersion: state.registryVersion + 1,
     })
@@ -1200,30 +1284,46 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     const state = get()
     const newStage: StageDefinition = { ...stage, id: crypto.randomUUID() }
 
-    // If adding a sub-stage to a parent that has no children yet,
-    // migrate parent's placements to the new sub-stage
+    // If adding a sub-stage to a parent that has no children yet and has nodes,
+    // auto-create an inherited child to hold existing nodes (prevent hiding)
     if (stage.parentId) {
       const existingChildren = state.gridConfig.stages.filter((s) => s.parentId === stage.parentId)
       if (existingChildren.length === 0) {
-        const newPlacements = state.gridConfig.placements.map((p) =>
-          p.stageId === stage.parentId ? { ...p, stageId: newStage.id } : p,
-        )
-        const newNodes = state.nodes.map((node) =>
-          node.data.stageId === stage.parentId
-            ? { ...node, data: { ...node.data, stageId: newStage.id } }
-            : node,
-        )
-        const newGridConfig = renumberGrid({
-          ...state.gridConfig,
-          stages: [...state.gridConfig.stages, newStage],
-          placements: newPlacements,
-        })
-        set({
-          nodes: newNodes,
-          gridConfig: newGridConfig,
-          ...pushHistory({ ...state, nodes: newNodes, gridConfig: newGridConfig }),
-        })
-        return
+        const parentPlacements = state.gridConfig.placements.filter((p) => p.stageId === stage.parentId)
+        if (parentPlacements.length > 0) {
+          // Create inherited child with same label as parent
+          const parentStage = state.gridConfig.stages.find((s) => s.id === stage.parentId)
+          const inheritedChildId = crypto.randomUUID()
+          const inheritedChild: StageDefinition = {
+            id: inheritedChildId,
+            label: parentStage?.label ?? 'Inherited',
+            parentId: stage.parentId,
+            order: 1,
+          }
+          // New sub-stage becomes sibling (order 2)
+          const adjustedNewStage: StageDefinition = { ...newStage, order: 2 }
+          // Move placements from parent to inherited child
+          const newPlacements = state.gridConfig.placements.map((p) =>
+            p.stageId === stage.parentId ? { ...p, stageId: inheritedChildId } : p,
+          )
+          const movedNodeIds = new Set(parentPlacements.map((p) => p.nodeId))
+          const newNodes = state.nodes.map((node) =>
+            movedNodeIds.has(node.id)
+              ? { ...node, data: { ...node.data, stageId: inheritedChildId } }
+              : node,
+          )
+          const newGridConfig = renumberGrid({
+            ...state.gridConfig,
+            stages: [...state.gridConfig.stages, inheritedChild, adjustedNewStage],
+            placements: newPlacements,
+          })
+          set({
+            nodes: newNodes,
+            gridConfig: newGridConfig,
+            ...pushHistory({ ...state, nodes: newNodes, gridConfig: newGridConfig }),
+          })
+          return
+        }
       }
     }
 
@@ -1989,9 +2089,19 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       }
     })
 
-    const numberedGridConfig = renumberGrid(gridConfig)
+    // Fix non-leaf stages that have placements (nodes would be hidden)
+    const promoted = promoteParentPlacements(
+      gridConfig.stages,
+      gridConfig.placements,
+      workflow.nodes,
+    )
+    const numberedGridConfig = renumberGrid({
+      ...gridConfig,
+      stages: promoted.stages,
+      placements: promoted.placements,
+    })
     set({
-      nodes: workflow.nodes,
+      nodes: promoted.nodes,
       edges: processedEdges,
       metadata: workflow.metadata,
       gridConfig: numberedGridConfig,
@@ -2001,7 +2111,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       selectedNodeId: null,
       selectedEdgeId: null,
       expandedEdgeIds: new Set<string>(),
-      history: [{ nodes: workflow.nodes, edges: processedEdges, gridConfig: numberedGridConfig }],
+      history: [{ nodes: promoted.nodes, edges: processedEdges, gridConfig: numberedGridConfig }],
       historyIndex: 0,
     })
   },
