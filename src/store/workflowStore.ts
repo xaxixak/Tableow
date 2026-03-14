@@ -112,6 +112,7 @@ export interface WorkflowState {
   insertStage: (stage: Omit<StageDefinition, 'id'>, referenceId: string, position: 'before' | 'after') => void
   reorderLanes: (sourceId: string, targetId: string, position?: 'before' | 'after' | 'child') => void
   reorderStages: (sourceId: string, targetId: string, position?: 'before' | 'after' | 'child') => void
+  wrapStageInParent: (stageId: string, parentLabel: string) => void
   setLaneColumnWidth: (width: number) => void
   placeNode: (nodeId: string, laneId: string, stageId: string) => void
   unplaceNode: (nodeId: string) => void
@@ -1319,6 +1320,36 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       stages: state.gridConfig.stages.map((s) =>
         s.id === id ? { ...s, ...updates } : s,
       ),
+    })
+    set({
+      gridConfig: newGridConfig,
+      ...pushHistory({ ...state, gridConfig: newGridConfig }),
+    })
+  },
+
+  wrapStageInParent: (stageId, parentLabel) => {
+    const state = get()
+    const target = state.gridConfig.stages.find((s) => s.id === stageId)
+    if (!target) return
+
+    const newParentId = crypto.randomUUID()
+    const newParent: StageDefinition = {
+      id: newParentId,
+      label: parentLabel,
+      parentId: target.parentId,
+      order: target.order,
+    }
+
+    // Target becomes child of new parent (order 1)
+    const newGridConfig = renumberGrid({
+      ...state.gridConfig,
+      stages: [
+        ...state.gridConfig.stages.map((s) => {
+          if (s.id === stageId) return { ...s, parentId: newParentId, order: 1 }
+          return s
+        }),
+        newParent,
+      ],
     })
     set({
       gridConfig: newGridConfig,

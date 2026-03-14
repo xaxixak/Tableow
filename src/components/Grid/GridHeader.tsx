@@ -1,5 +1,5 @@
 import { memo, useState, useCallback, useMemo, useRef, useEffect, type DragEvent } from "react";
-import { Plus, Trash2, Edit3, GripHorizontal, ArrowLeft, ArrowRight, Bold, Palette, Type, ChevronRight, ChevronDown } from "lucide-react";
+import { Plus, Trash2, Edit3, GripHorizontal, ArrowLeft, ArrowRight, ArrowUpFromLine, Bold, Palette, Type, ChevronRight, ChevronDown } from "lucide-react";
 import { useWorkflowStore } from "../../store/workflowStore.ts";
 import { cn } from "../../lib/utils.ts";
 import type { StageDefinition } from "../../types/grid.ts";
@@ -124,6 +124,7 @@ function GridHeader({ stages, collapsedStageIds, onToggleCollapse }: GridHeaderP
   const addStage = useWorkflowStore((s) => s.addStage);
   const reorderStages = useWorkflowStore((s) => s.reorderStages);
   const insertStage = useWorkflowStore((s) => s.insertStage);
+  const wrapStageInParent = useWorkflowStore((s) => s.wrapStageInParent);
   const laneColumnWidth = useWorkflowStore((s) => s.gridConfig.laneColumnWidth);
   const setLaneColumnWidth = useWorkflowStore((s) => s.setLaneColumnWidth);
 
@@ -267,6 +268,15 @@ function GridHeader({ stages, collapsedStageIds, onToggleCollapse }: GridHeaderP
     }
     closeContextMenu();
   }, [contextMenu, stages, addStage, closeContextMenu]);
+
+  const handleAddParent = useCallback(() => {
+    if (!contextMenu) return;
+    const name = window.prompt("Parent stage name:");
+    if (name?.trim()) {
+      wrapStageInParent(contextMenu.stageId, name.trim());
+    }
+    closeContextMenu();
+  }, [contextMenu, wrapStageInParent, closeContextMenu]);
 
   const handleInsertBefore = useCallback(() => {
     if (!contextMenu) return;
@@ -595,6 +605,13 @@ function GridHeader({ stages, collapsedStageIds, onToggleCollapse }: GridHeaderP
             >
               <Plus className="w-3.5 h-3.5" />
               Add Sub-stage
+            </button>
+            <button
+              onClick={handleAddParent}
+              className="flex items-center gap-2 w-full px-3 py-1.5 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-zinc-800"
+            >
+              <ArrowUpFromLine className="w-3.5 h-3.5" />
+              Add Parent
             </button>
             <hr className="my-1 border-slate-100 dark:border-zinc-700" />
             <button
