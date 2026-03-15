@@ -25,9 +25,13 @@ function GridNode({ node }: GridNodeProps) {
   const registryVersion = useWorkflowStore((s) => s.registryVersion);
   const isCreatingConnection = useWorkflowStore((s) => s.isCreatingConnection);
   const setIsCreatingConnection = useWorkflowStore((s) => s.setIsCreatingConnection);
+  const searchResultIds = useWorkflowStore((s) => s.searchResultIds);
+  const searchFocusIndex = useWorkflowStore((s) => s.searchFocusIndex);
 
   const isSelected = selectedNodeId === node.id;
   const isMultiSelected = selectedNodeIds.has(node.id);
+  const isSearchMatch = searchResultIds.length > 0 && searchResultIds.includes(node.id);
+  const isSearchFocused = searchFocusIndex >= 0 && searchResultIds[searchFocusIndex] === node.id;
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [isConnectionDragTarget, setIsConnectionDragTarget] = useState(false);
   const nodeRef = useRef<HTMLDivElement>(null);
@@ -186,7 +190,9 @@ function GridNode({ node }: GridNodeProps) {
           "hover:shadow-md transition-shadow duration-100",
           isSelected && "ring-2 ring-blue-500 border-blue-300 shadow-md",
           !isSelected && isMultiSelected && "ring-2 ring-blue-300 border-blue-200 bg-blue-50/60 dark:ring-blue-600 dark:border-blue-700 dark:bg-blue-950/40",
-          isConnectionDragTarget && "ring-2 ring-green-500 border-green-300"
+          isConnectionDragTarget && "ring-2 ring-green-500 border-green-300",
+          !isSelected && !isMultiSelected && isSearchFocused && "ring-2 ring-amber-500 border-amber-300 shadow-md",
+          !isSelected && !isMultiSelected && isSearchMatch && !isSearchFocused && "ring-1 ring-amber-300 dark:ring-amber-600",
         )}
         style={{
           borderLeftWidth: "4px",

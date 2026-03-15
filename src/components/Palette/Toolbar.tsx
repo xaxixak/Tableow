@@ -21,6 +21,9 @@ import {
   Clipboard,
   Hash,
   LayoutTemplate,
+  Search,
+  ChevronUp,
+  X,
 } from "lucide-react";
 import { useWorkflowStore } from "../../store/workflowStore.ts";
 import type { Workflow } from "../../types/index.ts";
@@ -53,6 +56,13 @@ export default function Toolbar() {
   const selectedNodeIds = useWorkflowStore((s) => s.selectedNodeIds);
   const clipboardExists = useWorkflowStore((s) => s.clipboard !== null);
   const renumberAll = useWorkflowStore((s) => s.renumberAll);
+  const searchQuery = useWorkflowStore((s) => s.searchQuery);
+  const searchResultIds = useWorkflowStore((s) => s.searchResultIds);
+  const searchFocusIndex = useWorkflowStore((s) => s.searchFocusIndex);
+  const setSearchQuery = useWorkflowStore((s) => s.setSearchQuery);
+  const searchNext = useWorkflowStore((s) => s.searchNext);
+  const searchPrev = useWorkflowStore((s) => s.searchPrev);
+  const clearSearch = useWorkflowStore((s) => s.clearSearch);
 
   const [editingName, setEditingName] = useState(false);
   const [nameValue, setNameValue] = useState(metadata.name);
@@ -298,7 +308,7 @@ export default function Toolbar() {
         <span className="text-sm font-bold bg-linear-to-r from-indigo-500 via-purple-500 to-pink-500 bg-clip-text text-transparent">
           TableOW
         </span>
-        <span className="text-[10px] font-medium text-slate-400 dark:text-slate-500">1.2</span>
+        <span className="text-[10px] font-medium text-slate-400 dark:text-slate-500">1.3</span>
       </div>
 
       {/* View toggle */}
@@ -404,6 +414,50 @@ export default function Toolbar() {
       >
         <Hash className="w-3.5 h-3.5" />
       </button>
+
+      {/* Search nodes */}
+      <div className="flex items-center gap-1 border border-slate-200 dark:border-zinc-700 rounded-md px-2 py-1">
+        <Search className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') { e.preventDefault(); e.shiftKey ? searchPrev() : searchNext(); }
+            if (e.key === 'Escape') { (e.target as HTMLInputElement).blur(); clearSearch(); }
+          }}
+          placeholder="Search nodes..."
+          className="w-32 text-sm bg-transparent outline-none text-slate-700 dark:text-slate-200 placeholder:text-slate-400 dark:placeholder:text-slate-500"
+        />
+        {searchQuery && (
+          <>
+            <span className="text-xs text-slate-400 dark:text-slate-500 whitespace-nowrap">
+              {searchResultIds.length > 0 ? `${searchFocusIndex + 1}/${searchResultIds.length}` : '0/0'}
+            </span>
+            <button
+              onClick={searchPrev}
+              className="p-0.5 rounded hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+              title="Previous (Shift+Enter)"
+            >
+              <ChevronUp className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={searchNext}
+              className="p-0.5 rounded hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+              title="Next (Enter)"
+            >
+              <ChevronDown className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={clearSearch}
+              className="p-0.5 rounded hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+              title="Clear (Escape)"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </>
+        )}
+      </div>
 
       {/* Center — Workflow name */}
       <div className="flex-1 flex items-center justify-center min-w-0">

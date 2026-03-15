@@ -231,6 +231,15 @@ export interface WorkflowState {
   // Batch move / duplicate
   placeNodes: (moves: Array<{ nodeId: string; laneId: string; stageId: string }>) => void
   duplicateNodesToCell: (nodeIds: string[], laneId: string, stageId: string) => void
+
+  // Search
+  searchQuery: string
+  searchResultIds: string[]
+  searchFocusIndex: number
+  setSearchQuery: (query: string) => void
+  searchNext: () => void
+  searchPrev: () => void
+  clearSearch: () => void
 }
 
 function pushHistory(state: {
@@ -432,6 +441,9 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   selectedNodeIds: new Set<string>(),
   clipboard: null,
   pasteTargetCell: null,
+  searchQuery: '',
+  searchResultIds: [],
+  searchFocusIndex: -1,
 
   setIsCreatingConnection: (isCreating) => {
     set({ isCreatingConnection: isCreating })
@@ -1255,6 +1267,10 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
         }
       }
     }
+    // Collect node IDs placed on removed lanes
+    const removedNodeIds = new Set(
+      state.gridConfig.placements.filter((p) => idsToRemove.has(p.laneId)).map((p) => p.nodeId)
+    )
     const newGridConfig = renumberGrid({
       ...state.gridConfig,
       lanes: state.gridConfig.lanes.filter((l) => !idsToRemove.has(l.id)),
@@ -1262,6 +1278,8 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     })
     set({
       gridConfig: newGridConfig,
+      nodes: state.nodes.filter((n) => !removedNodeIds.has(n.id)),
+      edges: state.edges.filter((e) => !removedNodeIds.has(e.source) && !removedNodeIds.has(e.target)),
       ...pushHistory({ ...state, gridConfig: newGridConfig }),
     })
   },
@@ -1402,6 +1420,10 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
         }
       }
     }
+    // Collect node IDs placed on removed stages
+    const removedNodeIds = new Set(
+      state.gridConfig.placements.filter((p) => idsToRemove.has(p.stageId)).map((p) => p.nodeId)
+    )
     const newGridConfig = renumberGrid({
       ...state.gridConfig,
       stages: state.gridConfig.stages.filter((s) => !idsToRemove.has(s.id)),
@@ -1409,6 +1431,8 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     })
     set({
       gridConfig: newGridConfig,
+      nodes: state.nodes.filter((n) => !removedNodeIds.has(n.id)),
+      edges: state.edges.filter((e) => !removedNodeIds.has(e.source) && !removedNodeIds.has(e.target)),
       ...pushHistory({ ...state, gridConfig: newGridConfig }),
     })
   },
@@ -2100,9 +2124,28 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       stages: promoted.stages,
       placements: promoted.placements,
     })
+
+    // Clean up orphaned nodes: nodes not in any placement that reference deleted lanes/stages
+    const placedNodeIds = new Set(numberedGridConfig.placements.map((p) => p.nodeId))
+    const validLaneIds = new Set(numberedGridConfig.lanes.map((l) => l.id))
+    const validStageIds = new Set(numberedGridConfig.stages.map((s) => s.id))
+    const cleanNodes = promoted.nodes.filter((n) => {
+      if (placedNodeIds.has(n.id)) return true
+      // Keep nodes that have no lane/stage reference (canvas-only nodes)
+      const laneId = n.data?.laneId as string | undefined
+      const stageId = n.data?.stageId as string | undefined
+      if (!laneId && !stageId) return true
+      // Remove nodes referencing non-existent lanes or stages
+      if (laneId && !validLaneIds.has(laneId)) return false
+      if (stageId && !validStageIds.has(stageId)) return false
+      return true
+    })
+    const cleanNodeIds = new Set(cleanNodes.map((n) => n.id))
+    const cleanEdges = processedEdges.filter((e) => cleanNodeIds.has(e.source) && cleanNodeIds.has(e.target))
+
     set({
-      nodes: promoted.nodes,
-      edges: processedEdges,
+      nodes: cleanNodes,
+      edges: cleanEdges,
       metadata: workflow.metadata,
       gridConfig: numberedGridConfig,
       customNodeTypes: allCustomTypes,
@@ -2111,7 +2154,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       selectedNodeId: null,
       selectedEdgeId: null,
       expandedEdgeIds: new Set<string>(),
-      history: [{ nodes: promoted.nodes, edges: processedEdges, gridConfig: numberedGridConfig }],
+      history: [{ nodes: cleanNodes, edges: cleanEdges, gridConfig: numberedGridConfig }],
       historyIndex: 0,
     })
   },
@@ -2426,5 +2469,56 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       state.customCategories,
     )
     get().importWorkflow(clipboard, { laneId, stageId })
+  },
+
+  // --- Search ---
+
+  setSearchQuery: (query) => {
+    const trimmed = query.trim()
+    if (!trimmed) {
+      set({ searchQuery: query, searchResultIds: [], searchFocusIndex: -1 })
+      return
+    }
+    const state = get()
+    const lower = trimmed.toLowerCase()
+    const results: string[] = []
+    for (const node of state.nodes) {
+      const label = ((node.data as Record<string, unknown>).label as string) ?? ''
+      const defType = ((node.data as Record<string, unknown>).definitionType as string) ?? ''
+      const def = nodeRegistry.get(defType)
+      const number = def?.number ?? ''
+      if (
+        label.toLowerCase().includes(lower) ||
+        number.toLowerCase().includes(lower) ||
+        defType.toLowerCase().includes(lower)
+      ) {
+        results.push(node.id)
+      }
+    }
+    const focusIdx = results.length > 0 ? 0 : -1
+    set({ searchQuery: query, searchResultIds: results, searchFocusIndex: focusIdx })
+    if (results.length > 0) {
+      set({ selectedNodeId: results[0], selectedEdgeId: null, selectedNodeIds: new Set([results[0]]) })
+    }
+  },
+
+  searchNext: () => {
+    const { searchResultIds, searchFocusIndex } = get()
+    if (searchResultIds.length === 0) return
+    const next = (searchFocusIndex + 1) % searchResultIds.length
+    const id = searchResultIds[next]
+    set({ searchFocusIndex: next, selectedNodeId: id, selectedEdgeId: null, selectedNodeIds: new Set([id]) })
+  },
+
+  searchPrev: () => {
+    const { searchResultIds, searchFocusIndex } = get()
+    if (searchResultIds.length === 0) return
+    const prev = (searchFocusIndex - 1 + searchResultIds.length) % searchResultIds.length
+    const id = searchResultIds[prev]
+    set({ searchFocusIndex: prev, selectedNodeId: id, selectedEdgeId: null, selectedNodeIds: new Set([id]) })
+  },
+
+  clearSearch: () => {
+    set({ searchQuery: '', searchResultIds: [], searchFocusIndex: -1 })
   },
 }))

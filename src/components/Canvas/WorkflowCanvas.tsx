@@ -8,6 +8,7 @@ import {
   type NodeMouseHandler,
   type EdgeMouseHandler,
   type EdgeTypes,
+  useReactFlow,
   type OnNodesChange,
   type OnEdgesChange,
 } from "@xyflow/react";
@@ -38,6 +39,10 @@ export default function WorkflowCanvas() {
   const selectEdge = useWorkflowStore((s) => s.selectEdge);
   const toggleEdgeExpand = useWorkflowStore((s) => s.toggleEdgeExpand);
   const registryVersion = useWorkflowStore((s) => s.registryVersion);
+  const searchResultIds = useWorkflowStore((s) => s.searchResultIds);
+  const searchFocusIndex = useWorkflowStore((s) => s.searchFocusIndex);
+
+  const { fitView } = useReactFlow();
 
   const nodeTypes = useMemo(() => buildNodeTypes(), [registryVersion]);
 
@@ -58,6 +63,13 @@ export default function WorkflowCanvas() {
     () => [...edges, ...virtuals.edges],
     [edges, virtuals.edges]
   );
+
+  // Search: zoom/pan to focused result
+  useEffect(() => {
+    if (searchFocusIndex < 0 || searchResultIds.length === 0) return;
+    const focusedId = searchResultIds[searchFocusIndex];
+    fitView({ nodes: [{ id: focusedId }], duration: 300, padding: 0.5 });
+  }, [searchFocusIndex, searchResultIds, fitView]);
 
   // Filter out virtual node changes so they don't hit the store
   const onNodesChange: OnNodesChange<WorkflowNode> = useCallback(

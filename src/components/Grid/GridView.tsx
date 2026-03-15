@@ -27,6 +27,8 @@ export default function GridView() {
   const selectedNodeIds = useWorkflowStore((s) => s.selectedNodeIds);
   const selectedEdgeId = useWorkflowStore((s) => s.selectedEdgeId);
   const selectMultipleNodes = useWorkflowStore((s) => s.selectMultipleNodes);
+  const searchResultIds = useWorkflowStore((s) => s.searchResultIds);
+  const searchFocusIndex = useWorkflowStore((s) => s.searchFocusIndex);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
@@ -286,6 +288,18 @@ export default function GridView() {
       document.removeEventListener("mouseup", handleMouseUp);
     };
   }, [marquee, selectMultipleNodes]);
+
+  // Search: scroll to focused result
+  useEffect(() => {
+    if (searchFocusIndex < 0 || searchResultIds.length === 0) return;
+    const focusedId = searchResultIds[searchFocusIndex];
+    const container = scrollRef.current;
+    if (!container) return;
+    const el = container.querySelector<HTMLElement>(`[data-node-id="${focusedId}"]`);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+    }
+  }, [searchFocusIndex, searchResultIds]);
 
   // Deselect node when clicking grid background
   const handleBackgroundClick = useCallback(
