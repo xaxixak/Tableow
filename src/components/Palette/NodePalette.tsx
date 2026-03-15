@@ -843,7 +843,6 @@ export default function NodePalette() {
   const togglePalette = useWorkflowStore((s) => s.togglePalette);
   const nodes = useWorkflowStore((s) => s.nodes);
   const gridConfig = useWorkflowStore((s) => s.gridConfig);
-  const viewMode = useWorkflowStore((s) => s.viewMode);
   const selectNode = useWorkflowStore((s) => s.selectNode);
   const removeNode = useWorkflowStore((s) => s.removeNode);
 
