@@ -278,6 +278,17 @@ function buildGuidance(
     "Use edgeFlowSummary to understand the actual step sequence. Edges with count > 1 indicate the same transition pattern appears across multiple lanes — but verify by checking which lanes contain those edges."
   );
 
+  // Add lane-hierarchy-as-routing guidance when nested lanes exist
+  const maxDepth = getMaxLaneDepth(laneAnalysis);
+  if (maxDepth >= 2) {
+    guidance.push(
+      "LANE HIERARCHY HINT: When lanes are nested, sibling lanes under the same parent OFTEN represent variants of the same process — " +
+      "they may share the same input screen with a selector (dropdown, radio, etc.) to choose between them. " +
+      "Consider whether sub-lanes are better represented as options/selectors on a shared page rather than separate screens. " +
+      "However, this is a pattern hint, not a rule — verify by comparing the actual edge flows between siblings."
+    );
+  }
+
   return guidance;
 }
 
@@ -321,4 +332,18 @@ function countNodesForLanes(
 ): number {
   const idSet = new Set(laneIds);
   return placements.filter((p) => idSet.has(p.laneId)).length;
+}
+
+function getMaxLaneDepth(laneAnalysis: LaneAnalysis[]): number {
+  let maxDepth = 0;
+  for (const lane of laneAnalysis) {
+    let depth = 0;
+    let current: LaneAnalysis | undefined = lane;
+    while (current?.parent) {
+      depth++;
+      current = laneAnalysis.find((l) => l.name === current!.parent);
+    }
+    if (depth > maxDepth) maxDepth = depth;
+  }
+  return maxDepth;
 }
