@@ -825,6 +825,7 @@ export default function NodePalette() {
   const [search, setSearch] = useState("");
   const [libraryOpen, setLibraryOpen] = useState(false); // Node Library collapsed by default
   const [myNodesOpen, setMyNodesOpen] = useState(true); // My Nodes expanded by default
+  const [canvasOnlyOpen, setCanvasOnlyOpen] = useState(true); // Canvas Only expanded by default
   const [addCategoryModalOpen, setAddCategoryModalOpen] = useState(false);
   const [deleteNodeModalOpen, setDeleteNodeModalOpen] = useState(false);
   const [nodeTypeToDelete, setNodeTypeToDelete] = useState<string>("");
@@ -840,6 +841,27 @@ export default function NodePalette() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const scrollIntervalRef = useRef<number | null>(null);
   const togglePalette = useWorkflowStore((s) => s.togglePalette);
+  const nodes = useWorkflowStore((s) => s.nodes);
+  const gridConfig = useWorkflowStore((s) => s.gridConfig);
+  const viewMode = useWorkflowStore((s) => s.viewMode);
+  const selectNode = useWorkflowStore((s) => s.selectNode);
+  const removeNode = useWorkflowStore((s) => s.removeNode);
+
+  // Compute unplaced nodes (canvas-only)
+  const unplacedNodes = useMemo(() => {
+    const { placements, lanes, stages } = gridConfig;
+    const parentStageIds = new Set(stages.filter(s => s.parentId).map(s => s.parentId!));
+    const parentLaneIds = new Set(lanes.filter(l => l.parentId).map(l => l.parentId!));
+    return nodes.filter(n => {
+      const placement = placements.find(p => p.nodeId === n.id);
+      if (!placement) return true;
+      if (!lanes.some(l => l.id === placement.laneId)) return true;
+      if (!stages.some(s => s.id === placement.stageId)) return true;
+      if (parentStageIds.has(placement.stageId)) return true;
+      if (parentLaneIds.has(placement.laneId)) return true;
+      return false;
+    });
+  }, [nodes, gridConfig]);
 
   const customTypeSet = useMemo(
     () => new Set(customNodeTypes.map((d) => d.type)),
@@ -1131,6 +1153,86 @@ export default function NodePalette() {
             </div>
           )}
         </div>
+
+        {/* Canvas Only — unplaced node instances (only in canvas mode or when unplaced nodes exist) */}
+        {unplacedNodes.length > 0 && (
+          <div className="border-t border-orange-200 dark:border-orange-800">
+            <button
+              onClick={() => setCanvasOnlyOpen(!canvasOnlyOpen)}
+              className="flex items-center gap-2 w-full px-3 py-2 text-xs font-semibold bg-orange-100 dark:bg-orange-950/40 hover:bg-orange-200 dark:hover:bg-orange-900/40 text-orange-700 dark:text-orange-400 uppercase tracking-wider"
+            >
+              {canvasOnlyOpen ? (
+                <ChevronDown className="w-3.5 h-3.5" />
+              ) : (
+                <ChevronRight className="w-3.5 h-3.5" />
+              )}
+              <span>Canvas Only</span>
+              <span className="ml-auto font-normal normal-case">
+                {unplacedNodes.length}
+              </span>
+            </button>
+            {canvasOnlyOpen && (
+              <div className="py-1 bg-orange-50/50 dark:bg-orange-950/20">
+                <div className="px-3 py-1 text-[10px] text-orange-500 dark:text-orange-400">
+                  Nodes not placed in any grid cell
+                </div>
+                {unplacedNodes.map((node) => {
+                  const def = node.type ? nodeRegistry.get(node.type) : undefined;
+                  const catDef = customCategories.find(c => c.path === (def?.category ?? ""));
+                  const catColor = getColorByIndex(catDef?.colorIndex);
+                  const label = (node.data.label as string) ?? def?.label ?? node.type ?? "Node";
+                  return (
+                    <div
+                      key={node.id}
+                      onClick={() => selectNode(node.id)}
+                      className={cn(
+                        "flex items-center gap-2 px-3 py-1.5 mx-1 rounded-md cursor-pointer group",
+                        "border border-dashed border-orange-300 dark:border-orange-700",
+                        "hover:bg-orange-100 dark:hover:bg-orange-950/40 transition-colors"
+                      )}
+                    >
+                      {def?.icon && (
+                        <span
+                          className="flex items-center justify-center w-5 h-5 rounded text-xs text-white shrink-0"
+                          style={{ backgroundColor: catColor.hex }}
+                        >
+                          {def.icon}
+                        </span>
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <div className="text-xs font-medium text-orange-700 dark:text-orange-400 truncate">
+                          {def?.number && (
+                            <span className="font-mono text-[10px] text-orange-400 dark:text-orange-500 mr-1">
+                              {def.number}
+                            </span>
+                          )}
+                          {label}
+                        </div>
+                        {def?.category && (
+                          <div className="text-[10px] text-orange-400 dark:text-orange-600 truncate">
+                            {def.category}
+                          </div>
+                        )}
+                      </div>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (window.confirm(`Delete "${label}"?`)) {
+                            removeNode(node.id);
+                          }
+                        }}
+                        className="p-0.5 text-orange-300 hover:text-red-500 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                        title="Delete node"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Footer */}

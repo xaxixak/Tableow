@@ -466,15 +466,13 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   setPropertiesWidth: (width) => set({ propertiesWidth: Math.max(200, Math.min(600, width)) }),
 
   setViewMode: (mode) => {
-    // When switching to canvas, auto-layout nodes based on grid placement
     if (mode === 'canvas') {
+      // Sync grid positions and switch view in a single state update to avoid flash
       get().syncGridToCanvas()
-    }
-    // Collapse all expanded edges when leaving canvas
-    if (mode === 'grid') {
-      set({ viewMode: mode, expandedEdgeIds: new Set<string>() })
-    } else {
       set({ viewMode: mode })
+    } else {
+      // Collapse all expanded edges when leaving canvas
+      set({ viewMode: mode, expandedEdgeIds: new Set<string>() })
     }
   },
 
@@ -484,40 +482,16 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
 
     if (placements.length === 0) return
 
-    // Only consider LEAF lanes and stages (no children) - actual cells where nodes are placed
-    const laneChildren = new Map<string, string[]>()
-    const stageChildren = new Map<string, string[]>()
+    // Use DFS tree walk to get leaf IDs in visual display order (matches grid rendering)
+    const orderedLaneIds = getOrderedLeafIds(lanes)
+    const orderedStageIds = getOrderedLeafIds(stages)
 
-    for (const l of lanes) {
-      if (l.parentId) {
-        if (!laneChildren.has(l.parentId)) laneChildren.set(l.parentId, [])
-        laneChildren.get(l.parentId)!.push(l.id)
-      }
-    }
-
-    for (const s of stages) {
-      if (s.parentId) {
-        if (!stageChildren.has(s.parentId)) stageChildren.set(s.parentId, [])
-        stageChildren.get(s.parentId)!.push(s.id)
-      }
-    }
-
-    const leafLanes = lanes.filter((l) => !laneChildren.has(l.id))
-    const leafStages = stages.filter((s) => !stageChildren.has(s.id))
-
-    // Build sorted index maps for leaf lanes and stages
-    const sortedLanes = [...leafLanes].sort((a, b) => a.order - b.order)
-    const sortedStages = [...leafStages].sort((a, b) => a.order - b.order)
-    const laneIndex = new Map(sortedLanes.map((l, i) => [l.id, i]))
-    const stageIndex = new Map(sortedStages.map((s, i) => [s.id, i]))
+    // Build index maps from the DFS-ordered leaf IDs
+    const laneIndex = new Map(orderedLaneIds.map((id, i) => [id, i]))
+    const stageIndex = new Map(orderedStageIds.map((id, i) => [id, i]))
 
     // Count how many nodes share each cell for vertical stacking
-    const cellCounts = new Map<string, number>()
     const cellNodeIndex = new Map<string, number>()
-    for (const p of placements) {
-      const key = `${p.laneId}:${p.stageId}`
-      cellCounts.set(key, (cellCounts.get(key) ?? 0) + 1)
-    }
 
     const STAGE_SPACING = 300
     const LANE_SPACING = 200

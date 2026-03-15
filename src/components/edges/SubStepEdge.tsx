@@ -1,4 +1,4 @@
-import { memo } from "react";
+import { memo, useMemo } from "react";
 import {
   BaseEdge,
   EdgeLabelRenderer,
@@ -17,8 +17,22 @@ interface SubStepEdgeData {
   [key: string]: unknown;
 }
 
+/** Check if a node is effectively unplaced (not in a visible grid cell) */
+function isNodeUnplaced(nodeId: string, gridConfig: { placements: Array<{ nodeId: string; laneId: string; stageId: string }>; lanes: Array<{ id: string; parentId?: string }>; stages: Array<{ id: string; parentId?: string }> }): boolean {
+  const { placements, lanes, stages } = gridConfig;
+  const placement = placements.find((p) => p.nodeId === nodeId);
+  if (!placement) return true;
+  if (!lanes.some((l) => l.id === placement.laneId)) return true;
+  if (!stages.some((s) => s.id === placement.stageId)) return true;
+  if (stages.some((s) => s.parentId === placement.stageId)) return true;
+  if (lanes.some((l) => l.parentId === placement.laneId)) return true;
+  return false;
+}
+
 function SubStepEdge({
   id,
+  source,
+  target,
   sourceX,
   sourceY,
   targetX,
@@ -33,6 +47,12 @@ function SubStepEdge({
   const isExpanded = useWorkflowStore((s) => s.expandedEdgeIds.has(id));
   const toggleEdgeExpand = useWorkflowStore((s) => s.toggleEdgeExpand);
   const openEdgeDetailModal = useWorkflowStore((s) => s.openEdgeDetailModal);
+  const gridConfig = useWorkflowStore((s) => s.gridConfig);
+
+  // Check if either endpoint is unplaced → edge becomes "canvas-only"
+  const isCanvasEdge = useMemo(() => {
+    return isNodeUnplaced(source, gridConfig) || isNodeUnplaced(target, gridConfig);
+  }, [source, target, gridConfig]);
 
   const [edgePath, labelX, labelY] = getSmoothStepPath({
     sourceX,
@@ -117,6 +137,10 @@ function SubStepEdge({
   }
 
   // ── Collapsed state: path + label + orange badge ──
+  // Canvas-only edges (touching at least one unplaced node) get orange dashed style
+  const edgeStroke = selected ? "#3b82f6" : isCanvasEdge ? "#f97316" : "#64748b";
+  const edgeDash = isCanvasEdge && !selected ? "6 4" : undefined;
+
   return (
     <>
       <BaseEdge
@@ -124,8 +148,9 @@ function SubStepEdge({
         path={edgePath}
         markerEnd={markerEnd}
         style={{
-          stroke: selected ? "#3b82f6" : "#64748b",
+          stroke: edgeStroke,
           strokeWidth: selected ? 3 : 2,
+          strokeDasharray: edgeDash,
         }}
       />
       <EdgeLabelRenderer>
@@ -138,13 +163,22 @@ function SubStepEdge({
           className="nopan nodrag"
         >
           <div className="flex items-center gap-1.5">
+            {/* Canvas-only badge */}
+            {isCanvasEdge && !selected && (
+              <span className="text-[9px] font-bold px-1 py-0.5 rounded bg-orange-500 text-white uppercase tracking-wider">
+                Canvas
+              </span>
+            )}
+
             {/* Edge number label */}
             {edgeLabel && (
               <span
                 className={`text-[11px] px-1.5 py-0.5 rounded bg-white/90 dark:bg-zinc-800/90 border ${
                   selected
                     ? "border-blue-400 text-blue-600 font-semibold"
-                    : "border-slate-200 dark:border-zinc-600 text-slate-500 dark:text-zinc-400"
+                    : isCanvasEdge
+                      ? "border-orange-300 dark:border-orange-600 text-orange-600 dark:text-orange-400"
+                      : "border-slate-200 dark:border-zinc-600 text-slate-500 dark:text-zinc-400"
                 }`}
               >
                 {edgeLabel}

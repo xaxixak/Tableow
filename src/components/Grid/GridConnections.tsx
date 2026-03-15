@@ -57,18 +57,25 @@ function GridConnections() {
     return () => clearTimeout(timer);
   }, [measurePositions, nodes.length, edges.length]);
 
-  // Also re-measure on resize
+  // Also re-measure on resize and scroll
   useEffect(() => {
+    const container = svgRef.current?.parentElement;
+    if (!container) return;
+
     const observer = new ResizeObserver(() => {
       measurePositions();
     });
+    observer.observe(container);
 
-    const container = svgRef.current?.parentElement;
-    if (container) {
-      observer.observe(container);
-    }
+    // Find the scrollable ancestor to listen for scroll events
+    const scrollAncestor = container.closest('.overflow-auto') ?? container;
+    const handleScroll = () => measurePositions();
+    scrollAncestor.addEventListener('scroll', handleScroll, { passive: true });
 
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+      scrollAncestor.removeEventListener('scroll', handleScroll);
+    };
   }, [measurePositions]);
 
   if (edges.length === 0) return null;
@@ -76,7 +83,7 @@ function GridConnections() {
   return (
     <svg
       ref={svgRef}
-      className="absolute inset-0 z-0"
+      className="absolute inset-0 z-10"
       width={dimensions.width || "100%"}
       height={dimensions.height || "100%"}
       style={{ overflow: "visible", pointerEvents: "none" }}
