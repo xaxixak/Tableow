@@ -298,7 +298,7 @@ export default function Toolbar() {
         <span className="text-sm font-bold bg-linear-to-r from-indigo-500 via-purple-500 to-pink-500 bg-clip-text text-transparent">
           TableOW
         </span>
-        <span className="text-[10px] font-medium text-slate-400 dark:text-slate-500">1.1</span>
+        <span className="text-[10px] font-medium text-slate-400 dark:text-slate-500">1.2</span>
       </div>
 
       {/* View toggle */}

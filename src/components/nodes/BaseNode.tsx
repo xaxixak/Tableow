@@ -56,6 +56,7 @@ function BaseNode({ data, type, selected }: NodeProps) {
         style={{ backgroundColor: catColor.hex }}
       >
         {icon && <span className="text-base leading-none">{icon}</span>}
+        {definition?.number && <span className="text-[10px] font-normal opacity-70">{definition.number}</span>}
         <span className="truncate">{label}</span>
       </div>
 
